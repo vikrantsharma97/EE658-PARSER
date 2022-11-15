@@ -62,7 +62,7 @@ lev()
 #define Upcase(x) ((isalpha(x) && islower(x))? toupper(x) : (x))
 #define Lowcase(x) ((isalpha(x) && isupper(x))? tolower(x) : (x))
 
-enum e_com {READ, PC, HELP, QUIT,LEV,LOGICSIM,RFL,DFS,PFS};  // Command list.
+enum e_com {READ, PC, HELP, QUIT, LOGICSIM, RFL, DFS, PFS};  // Command list. removed lev
 enum e_state {EXEC, CKTLD};         /* Gstate values */
 enum e_ntype {GATE, PI, FB, PO};    /* column 1 of circuit format */ // Node type.
 enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
@@ -86,15 +86,15 @@ typedef struct n_struc {
 } NSTRUC;                     
 
 /*----------------- Command definitions ----------------------------------*/
-#define NUMFUNCS 10
-int cread(), pc(), help(), quit(), lev(), logicsim(),rfl(),dfs(),pfs(),rtg();
+#define NUMFUNCS 9
+int cread(), pc(), help(), quit(), logicsim(), rfl(), dfs(), pfs(), rtg();
 int all_levels_assigned(), all_logics_aasigned(), get_max_level();
 struct cmdstruc command[NUMFUNCS] = {
    {"READ", cread, EXEC},
    {"PC", pc, CKTLD},
    {"HELP", help, EXEC},
    {"QUIT", quit, EXEC},
-   {"LEV", lev, CKTLD},
+   //{"LEV", lev, CKTLD},
    {"LOGICSIM", logicsim, CKTLD },
    {"RFL",rfl, CKTLD },
    {"DFS", dfs, CKTLD },
@@ -223,12 +223,17 @@ description:
 cread(cp)
 char *cp;
 {
+   char output_lev_file_name[1000]; //used to call lev function with output name
+   int a; // used for output_lev_name
    char buf[MAXLINE];
    int ntbl, *tbl, i, j, k, nd, tp, fo, fi, ni = 0, no = 0;
    FILE *fd;
    NSTRUC *np;
    
    sscanf(cp, "%s", buf);
+   for(a=0;a<strlen(buf)-4;a++) output_lev_file_name[a]=buf[a];
+   strcat(output_lev_file_name,"_lev.txt");
+   //printf("%s",output_lev_file_name);
    if((fd = fopen(buf,"r")) == NULL) {
       printf("File %s does not exist!\n", buf);
       return;
@@ -336,6 +341,7 @@ char *cp;
       fclose(fd);
       Gstate = CKTLD;
       printf("==> OK\n");
+      lev(output_lev_file_name);
 }
 
 /*-----------------------------------------------------------------------
@@ -394,18 +400,18 @@ help()
    printf("print circuit information\n");
    printf("HELP - ");
    printf("print this help information\n");
-   printf("LEV filename - ");
-   printf(" Performs levelization of the circuit that was read and outputs the circuit data into the given file\n");
+   //printf("LEV filename - ");
+   //printf(" Performs levelization of the circuit that was read and outputs the circuit data into the given file\n");
    printf("LOGICSIM input_filename output_filename - ");
    printf("Performs the logic simulation of the given circuit and generates the output vector\n");
    printf("RFL filename - ");
-   printf(" Generates a reduced list of faults required for the ATPG of the circuit.\n");
+   printf(" Generates a reduced list of faults required for the ATPG of the circuit\n");
    printf("DFS filename - ");
-   printf("Reports all the detectable (so not just the RFL) faults using the input test patterns.\n");
+   printf("Reports all the detectable (so not just the RFL) faults using the input test patterns\n");
    printf("PFS filename - ");
-   printf("Reports which one of the faults can be detected with the input test patterns using the PFS method.\n");
-   printf("QUIT - ");
+   printf("Reports which one of the faults can be detected with the input test patterns using the PFS method\n");
    printf("RTG #random_test_patterns  report_frequency   test_pattern_report_filename   FC_report_filename-\n"); //UPDATE THIS.
+   printf("QUIT - ");
    printf("stop and exit\n");
 }
 
