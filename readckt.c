@@ -161,13 +161,12 @@ int main()
       fgets(cline, MAXLINE, stdin);
       final_gate_count = 0; // reset final_gate_count.
       i=j=k=0;
-      
       if((cline[0] == 'r') || (cline[0] == 'R')){ // If its a read command.
             //printf("Entered file copy\n");
             while(cline[i] != ' ') i+=1;
             j = i + 1;
    
-            while(cline[j] != '.')
+            while(cline[j] != '\n')
             {
                print_file_name[k] = cline[j];
                //printf("%c\n",cline[j]);
