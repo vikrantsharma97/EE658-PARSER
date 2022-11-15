@@ -896,7 +896,8 @@ char *cp;
 rtg(cp)
 char *cp;
 {
-   printf("Entered rtg\n");
+   printf("Entered the rtg function\n\n");
+   
 }
 /*-----------------------------------------------------------------------
 input: gate type
