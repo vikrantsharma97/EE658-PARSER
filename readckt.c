@@ -82,7 +82,7 @@ typedef struct n_struc {
    struct n_struc **unodes;   /* pointer to array of up nodes */
    struct n_struc **dnodes;   /* pointer to array of down nodes */
    int level;                 /* level of the gate output */
-   int logical_value;         /* For storing the logical value of every node.*/
+   char logical_value;         /* For storing the logical value of every node.*/
 } NSTRUC;                     
 
 /*----------------- Command definitions ----------------------------------*/
@@ -314,7 +314,6 @@ char *cp;
 
       np->unodes = (NSTRUC **) malloc(np->fin * sizeof(NSTRUC *));
       np->dnodes = (NSTRUC **) malloc(np->fout * sizeof(NSTRUC *));
-      
       //printf("\ncurrent fin: %u \n",np->fin);
       for(i = 0; i < np->fin; i++) 
       {
@@ -671,33 +670,81 @@ char *ip;
    //printf("Entered LOGICSIM\n");
    //printf("input file: %s\n",input_file_logicsim);
    //printf("output file: %s\n",output_file_logicsim);
-   char line[MAXLINE];
+   char line[10000];
    int i,j,k,current_level,node_number,logic_val;
    NSTRUC *np,tmp;
    int max_level = get_max_level();
    
-
    FILE *file_ptr;
    file_ptr = fopen(input_file_logicsim,"r");
-
+   FILE *file_ptr2;
+   file_ptr2 = fopen(output_file_logicsim,"w");
+   char *
+   pt;   
+   int first_line =0;
+   int node_no[Npi];
+   char logicvalue[10000][Npi];
+   for(i=0; i<1000; i++) memset(logicvalue[i],0,strlen(logicvalue[i]));
+   int a=0, b=0; //a is # input patterns, b used internally which is basically Npi
+   int x,y,c;
+   //printf("Npi=%d\n",Npi);
    // Assigning logical value to the Primary inputs:
    while(!feof(file_ptr))
    {
-      fgets(line,MAXLINE,file_ptr);
-      sscanf(line,"%d,%d",&node_number,&logic_val);
-
+      memset(line,0,strlen(line));
+      fgets(line,10000,file_ptr);
+      //printf("%s",line);
+      if(first_line==0){
+         i=0;
+         pt = strtok (line,",");
+         while (pt != NULL) {
+            node_no[i] = atoi(pt);
+            //printf("%d", node_no[i]);
+            pt = strtok (NULL, ",");
+            i++;
+         }
+         first_line++;
+         for(c=0; c<Npo;c++){
+            if(c!=Npo-1) fprintf(file_ptr2,"%d,",Poutput[c]->num);
+            else fprintf(file_ptr2,"%d",Poutput[c]->num);
+         }
+      }
+      else{
+         pt = strtok (line,",");
+         while (pt != NULL) {
+            //printf("%s",pt);
+            logicvalue[a][b] = atoi(pt);
+            //printf("%d", logicvalue[a][b]);
+            pt = strtok (NULL, ",");
+            b++;
+         }
+         b=0;
+         //printf("\n");
+         a++;
+      } 
+      //sscanf(line,"%d,%d",&node_number,&logic_val);
       // Can we reduce time complexity by using Pinput[] and Npi?
-       for(i=0;i<Npi;i++) 
-       {
-
-         //printf("current node: %d\n",Pinput[i]->num);
-          if(Pinput[i]->num == node_number)
-          { Pinput[i]->logical_value = logic_val;
-            //printf("node-%d assigned value: %d\n\n\n",Pinput[i]->num,Pinput[i]->logical_value);
-          }
-       }
+       
    }
    fclose(file_ptr);
+   //int x=0;
+   for(x=0;x<(a-1);x++){
+       for(y=0;y<Npi;y++) 
+       {
+         //printf("current node: %d\n",Pinput[i]->num);
+          if(Pinput[y]->num == node_no[y])
+          { Pinput[y]->logical_value = logicvalue[x][y];
+            //printf("node-%d assigned value: %d\n",Pinput[i]->num,Pinput[i]->logical_value);
+            //x++;
+          }
+       }      
+   //printf("x=%d",x);
+   /*int c,d;
+      for( c=0;c<a-1;c++){
+         for( d=0;d<Npi;d++) printf("%d",logicvalue[c][d]);
+         printf("\n");
+      }*/
+
    //----------------PIs have been assigned their logical value-------------------------
 
    //printf("Logic value assigned to all PIs\n");
@@ -712,7 +759,8 @@ char *ip;
    current_level = 1; // We have already assigned logical values to all the nodes in level-0 
    //                0     1    2   3    4    5    6     7
    // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
-   while(!all_logics_assigned() && current_level<=max_level)
+   //while(!all_logics_assigned() && current_level<=max_level)
+   while(current_level<=max_level)
    {
       //printf("\n\nCurrent level: %d\n",current_level);
       for(i=0;i<Nnodes;i++)
@@ -816,18 +864,21 @@ char *ip;
       }
       current_level+=1;
    }
-
    // At this point all the nodes have been assigned a logical value and we have traversed
    // all the levels. Hence, we now write the output logic values to the output files.
-
-   file_ptr = fopen(output_file_logicsim,"w");
+   
+   
    for(j=0;j<Npo;j++)
    {
-      fprintf(file_ptr,"%d,%d\n",Poutput[j]->num,Poutput[j]->logical_value);
+      //printf("%d=%d\n",Poutput[j]->num,Poutput[j]->logical_value);
+      if(j==0) fprintf(file_ptr2,"\n%d,",Poutput[j]->logical_value);
+      else if(j!=Npo-1) fprintf(file_ptr2,"%d,",Poutput[j]->logical_value);
+      else fprintf(file_ptr2,"%d",Poutput[j]->logical_value);
    }
-   fclose(file_ptr);
    //printf("\n\n\nLogical value assigned to all nodes\n");
    //printf("Logicsim finished\n");
+   }  
+   fclose(file_ptr2);   
 }
 /*-----------------------------------------------------------------------
 input: nothing
