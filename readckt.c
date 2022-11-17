@@ -82,7 +82,7 @@ typedef struct n_struc {
    struct n_struc **unodes;   /* pointer to array of up nodes */
    struct n_struc **dnodes;   /* pointer to array of down nodes */
    int level;                 /* level of the gate output */
-   char logical_value;         /* For storing the logical value of every node.*/
+   int logical_value;         /* For storing the logical value of every node.*/
 } NSTRUC;                     
 
 /*----------------- Command definitions ----------------------------------*/
@@ -679,20 +679,26 @@ char *ip;
    file_ptr = fopen(input_file_logicsim,"r");
    FILE *file_ptr2;
    file_ptr2 = fopen(output_file_logicsim,"w");
-   char *
-   pt;   
+   char *pt;
+   const char *comp_x = "x";
+   const char *comp_X = "X";
    int first_line =0;
    int node_no[Npi];
    char logicvalue[10000][Npi];
    for(i=0; i<1000; i++) memset(logicvalue[i],0,strlen(logicvalue[i]));
    int a=0, b=0; //a is # input patterns, b used internally which is basically Npi
    int x,y,c;
+
    //printf("Npi=%d\n",Npi);
    // Assigning logical value to the Primary inputs:
    while(!feof(file_ptr))
    {
       memset(line,0,strlen(line));
       fgets(line,10000,file_ptr);
+      //printf("%d\n", strlen(line));
+      //printf("%s",line);
+      if(line[strlen(line)-1]=='\n') line[strlen(line)-1]='\0';
+      if(strlen(line)==0) break;
       //printf("%s",line);
       if(first_line==0){
          i=0;
@@ -713,9 +719,16 @@ char *ip;
          pt = strtok (line,",");
          while (pt != NULL) {
             //printf("%s",pt);
-            logicvalue[a][b] = atoi(pt);
+            if((strcmp(pt, comp_x)==0)||(strcmp(pt, comp_X)==0)){ 
+            logicvalue[a][b] = -1;   
+            //printf("%d", logicvalue[a][b]);
+            }
+            else{
+                logicvalue[a][b] = atoi(pt);
+            }    
             //printf("%d", logicvalue[a][b]);
             pt = strtok (NULL, ",");
+            //printf("%s",pt);
             b++;
          }
          b=0;
@@ -728,7 +741,7 @@ char *ip;
    }
    fclose(file_ptr);
    //int x=0;
-   for(x=0;x<(a-1);x++){
+   for(x=0;x<(a);x++){
        for(y=0;y<Npi;y++) 
        {
          //printf("current node: %d\n",Pinput[i]->num);
@@ -870,10 +883,17 @@ char *ip;
    
    for(j=0;j<Npo;j++)
    {
+      if(Poutput[j]->logical_value != -1){
       //printf("%d=%d\n",Poutput[j]->num,Poutput[j]->logical_value);
       if(j==0) fprintf(file_ptr2,"\n%d,",Poutput[j]->logical_value);
       else if(j!=Npo-1) fprintf(file_ptr2,"%d,",Poutput[j]->logical_value);
       else fprintf(file_ptr2,"%d",Poutput[j]->logical_value);
+      }
+      else{
+         if(j==0) fprintf(file_ptr2,"\nx,");
+      else if(j!=Npo-1) fprintf(file_ptr2,"x,");
+      else fprintf(file_ptr2,"x");
+      }
    }
    //printf("\n\n\nLogical value assigned to all nodes\n");
    //printf("Logicsim finished\n");
