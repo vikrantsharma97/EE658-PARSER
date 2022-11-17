@@ -892,7 +892,7 @@ char *ip;
       else{
          if(j==0) fprintf(file_ptr2,"\nx,");
       else if(j!=Npo-1) fprintf(file_ptr2,"x,");
-      else fprintf(file_ptr2,"x");
+      else fprintf(file_ptr2,"x"); 
       }
    }
    //printf("\n\n\nLogical value assigned to all nodes\n");
