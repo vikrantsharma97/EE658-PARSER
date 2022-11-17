@@ -120,6 +120,9 @@ char output_file_name[MAXLINE];
 char *user_file_input[MAXLINE];
 int final_gate_count = 0;
 
+
+//cread():
+char current_read_file[MAXLINE];
 //logicsim():
 char input_file_logicsim[MAXLINE];
 char output_file_logicsim[MAXLINE];
@@ -230,7 +233,11 @@ char *cp;
    NSTRUC *np;
    
    sscanf(cp, "%s", buf);
-   for(a=0;a<strlen(buf)-4;a++) output_lev_file_name[a]=buf[a];
+   for(a=0;a<strlen(buf)-4;a++) 
+   {
+      current_read_file[a] = buf[a];
+      output_lev_file_name[a]=buf[a];
+   }
    strcat(output_lev_file_name,"_lev.txt");
    //printf("%s",output_lev_file_name);
    if((fd = fopen(buf,"r")) == NULL) {
@@ -930,17 +937,48 @@ allocate()
 rfl(cp)
 char *cp;
 {
-   printf("Entered rfl\n");
-   char filename[MAXLINE];
-   char line[MAXLINE];
-   sscanf(cp, "%s", filename);
-   printf("filename: %s\n",filename);
    FILE *f_ptr;
-   f_ptr = fopen(filename,"r");
-   while(fgets(line, MAXLINE, f_ptr) != NULL)
+   char output_filename[MAXLINE];
+   char line[MAXLINE];
+   char current_fault[MAXLINE];
+   char temp[MAXLINE];
+   int i;
+   NSTRUC *np;
+   sscanf(cp, "%s", output_filename);
+   printf("output_filename: %s\n",output_filename);
+   f_ptr = fopen(output_filename,"w");
+
+   
+   for(i=0;i<Npi;i++)
    {
-      printf("%s\n",line);
+      sprintf(temp,"%d",Pinput[i]->num);
+      strcat(temp,"@0");
+      fprintf(f_ptr,"%s\n",temp);
+      strcpy(temp,"");
+      sprintf(temp,"%d",Pinput[i]->num);
+      strcat(temp,"@1");
+      fprintf(f_ptr,"%s\n",temp);
    }
+
+   strcpy(temp,""); // Re-initialize temp.
+   for(i=0;i<Nnodes;i++)
+   {
+      np = &Node[i];
+      if(np->type == 1)
+      {
+         sprintf(temp,"%d",np->num);
+         strcat(temp,"@0");
+         fprintf(f_ptr,"%s\n",temp);
+         strcpy(temp,"");
+         sprintf(temp,"%d",np->num);
+         strcat(temp,"@1");
+         fprintf(f_ptr,"%s\n",temp);
+      }
+      
+   }
+   //printf("All RFL faults updated\n");
+   fclose(f_ptr);
+   
 }
 
 //dfs:
