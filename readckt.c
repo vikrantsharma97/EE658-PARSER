@@ -931,6 +931,16 @@ rfl(cp)
 char *cp;
 {
    printf("Entered rfl\n");
+   char filename[MAXLINE];
+   char line[MAXLINE];
+   sscanf(cp, "%s", filename);
+   printf("filename: %s\n",filename);
+   FILE *f_ptr;
+   f_ptr = fopen(filename,"r");
+   while(fgets(line, MAXLINE, f_ptr) != NULL)
+   {
+      printf("%s\n",line);
+   }
 }
 
 //dfs:
