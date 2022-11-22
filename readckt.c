@@ -965,7 +965,6 @@ char *cp;
    int i;
    NSTRUC *np;
    sscanf(cp, "%s", output_filename);
-   printf("output_filename: %s\n",output_filename);
    f_ptr = fopen(output_filename,"w");
 
    
@@ -1002,9 +1001,11 @@ char *cp;
 }
 
 //dfs:
+
 dfs(cp)
 char *cp;
 {
+   
    printf("Entered dfs\n");
 }
 
