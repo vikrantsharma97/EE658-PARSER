@@ -56,6 +56,8 @@ lev()
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <math.h>
 #define MAXLINE 81               /* Input buffer size */
 #define MAXNAME 31               /* File name size */
 
@@ -73,6 +75,13 @@ struct cmdstruc {
    enum e_state state;        /* execution state sequence */
 };
 
+struct fault{
+   int node_num;
+   int fault_type;
+};
+
+int W = (int)(CHAR_BIT * sizeof(void *));
+
 typedef struct n_struc {
    unsigned indx;             /* node index(from 0 to NumOfLine - 1 */
    unsigned num;              /* line number(May be different from indx */
@@ -83,6 +92,7 @@ typedef struct n_struc {
    struct n_struc **dnodes;   /* pointer to array of down nodes */
    int level;                 /* level of the gate output */
    int logical_value;         /* For storing the logical value of every node.*/
+   int fault_list[(int)(CHAR_BIT * sizeof(void *))];
 } NSTRUC;                     
 
 /*----------------- Command definitions ----------------------------------*/
@@ -129,6 +139,12 @@ char output_file_logicsim[MAXLINE];
 // No. of nodes is Nnodes(declared on line 102).
 // No. of primary inputs is Npi(declared on line 103).
 // No. of primary outputs is Npo(declared on line 104).
+
+//pfs():
+//struct fault map[iterations];
+//struct fault current_input_vector[Npi];// Store PI node_num and its value.
+
+
 /*------------------------------------------------------------------------*/
 
 /*------------------------------------------------------------------------*/
@@ -409,7 +425,7 @@ help()
    //printf(" Performs levelization of the circuit that was read and outputs the circuit data into the given file\n");
    printf("LOGICSIM input_filename output_filename - ");
    printf("Performs the logic simulation of the given circuit and generates the output vector\n");
-   printf("RFL filename - ");
+   printf("RFL output_filename - ");
    printf(" Generates a reduced list of faults required for the ATPG of the circuit\n");
    printf("DFS filename - ");
    printf("Reports all the detectable (so not just the RFL) faults using the input test patterns\n");
@@ -999,22 +1015,183 @@ char *cp;
    fclose(f_ptr);
    
 }
+/*
+int get_lines(char *filename): Returns the number of lines in a file.
+*/
+ int get_lines(char *filename)
+ {
+    FILE *f;
+    int number_of_lines = 0;
+    char input_filename[MAXLINE];
+    sscanf(filename, "%s", input_filename);
+    f = fopen(input_filename,"r");
+    int ch;
+
+    while (EOF != (ch=getc(f)))
+    {
+        if ('\n' == ch) ++number_of_lines;
+    }
+
+    return number_of_lines;
+ }
+
+
+/*
+void reset_logic_values()
+{
+   NSTRUC *np;
+   int i;
+
+   for(i=0;i<Nnodes;i++)
+   {
+      np = &Node[i];
+      np->logical_value = -1;
+      np->fault[0] = -1;
+   }
+}
+
+
+
+int logicsim_single_pass(int pinputs[Npi])
+{
+   reset_logic_values();
+   //LOGICSIM SINGLE PASS LOGIC:
+   Also set np->fault[0] = np->logical_val;
+}
+
+*/
+
+
 
 //dfs:
-
 dfs(cp)
 char *cp;
 {
-   
    printf("Entered dfs\n");
 }
+
+
 
 //pfs:
 pfs(cp)
 char *cp;
 {
+   /*
+    Function call:
+    pfs <fault_list> <input_list>
+   */
+
+   /*
+   struct fault{
+   int node_num;
+   int fault_type;
+   };
+   */
+
    printf("Entered pfs\n");
+   FILE *f,*f1;
+   char fault_list[MAXLINE];
+   char input_vector_list[MAXLINE];
+   sscanf(cp, "%s %s", fault_list,input_vector_list);
+
+   int q = get_lines(fault_list);
+   int iterations = ceil(q/(W-1)); // No. of iterations = ceil(q/(W-1)).
+   
+   struct fault map[iterations];
+   struct fault current_input_vector[Npi];// Store PI node_num and its value.
+   int i,j,k,l,a,b,c;
+   int iter=0; // Iteration number.
+   NSTRUC *np;
+   
+   f1 = fopen(input_vector_list,"r");
+
+   /*
+      fgets(); // First line will give PI order.
+      temp[] = split string at comma.
+
+      for(i=0;i<Npi;i++)
+      {
+         input[i].node_num = temp[i];
+      }
+      input vectors start from next line onwards i.e. line-2.
+   */
+
+
+   //while(!feof(f1)) // Perform pfs() for every input vector.
+   {
+      /*
+         INITIALIZE ALL PIs:
+         Read input vector:
+         for(i=0;i<Npi;i++)
+         {
+            np = &Pinput[i];
+            np->logical_val = current_input_vector[]
+         }
+      */
+       
+       // At this point we have initialized all the PIs.
+       //logicsim_single_pass();
+
+
+      /*
+      //Initialize fault map:
+      
+      
+         for(j=0;j<iterations;j++)
+         {
+            map[j].node_num = -1;
+            map[j].fault_type = -1;
+         }
+      */
+
+      //Set fault map:
+      i=1;// Because map[0] has the fault-free value hence, faults will
+          //get stored starting from map[1]. 
+
+      f = fopen(fault_list,"r");
+      while(!feof(f))
+      {
+         /*
+         for(k=0;k<iterations;k++)
+         {
+            if(!feof(f)) 
+            {
+               fgets(); // Since iterations comes from ceil(), 
+               //its possible in the end that we may reach EOF before completing the iteration.
+               node_num =?
+               fault_type=? 
+               map[i].node_num = node_num;
+               map[i].fault_type = fault_type;
+               i+=1;   
+            }
+         }
+         i=0; // Reset for next iteration.
+
+         //AT THIS POINT:
+         1. logicsim_sngle_pass() is done. So np->fault[0] = np->logic_val;
+         2. Now we must do fault checking for every fault for every node.
+         
+         for(j=0;j<Nnodes;j++)
+         {
+            np = &Node[j];
+            
+         }
+         
+         
+         */
+          
+          
+         /*
+
+          END OF ITERATION
+         */
+      }
+   }  
 }
+
+   
+
+
 
 
 //rtg:
