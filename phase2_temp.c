@@ -1247,7 +1247,8 @@ char *cp;
 
        // At this point we have initialized all the PIs.
        logicsim_single_pass();
-       //exit(-1);
+       printf("Exiting PFS\n");
+       exit(-1);
 
 
       //Set fault map:
