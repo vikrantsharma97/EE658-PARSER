@@ -58,8 +58,8 @@ lev()
 #include <string.h>
 #include <limits.h>
 #include <math.h>
-#define MAXLINE 81               /* Input buffer size */
-#define MAXNAME 31               /* File name size */
+#define MAXLINE 900               /* Input buffer size */
+#define MAXNAME 900               /* File name size */
 
 #define Upcase(x) ((isalpha(x) && islower(x))? toupper(x) : (x))
 #define Lowcase(x) ((isalpha(x) && isupper(x))? tolower(x) : (x))
@@ -141,7 +141,7 @@ char output_file_logicsim[MAXLINE];
 // No. of primary outputs is Npo(declared on line 104).
 
 //pfs():
-
+struct pfs_node map[(int)(CHAR_BIT * sizeof(void *))];
 
 /*------------------------------------------------------------------------*/
 
@@ -1033,6 +1033,146 @@ int get_lines(char *filename): Returns the number of lines in a file.
     return number_of_lines;
  }
 
+
+int all_levels_assigned()
+{
+   NSTRUC *np;
+   int i;
+   for(i=0;i<Nnodes;i++)
+   {
+      np = &Node[i];
+      if(np->level == -1) return 0;
+   }
+   return 1;
+}
+
+
+void rest_logic_val()
+{
+    NSTRUC *np;
+    int i;
+    for(i=0;i<Nnodes;i++)
+    {
+        np = &Node[i];
+        np->logical_value = -1;
+    }
+}
+void logicsim_single_pass()
+{
+    int i,j,k,current_level,node_number,logic_val;
+    int all_assigned=0;
+    current_level = 1; // We have already assigned logical values to all the nodes in level-0 
+   //                0     1    2   3    4    5    6     7
+   // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
+   //while(!all_logics_assigned() && current_level<=max_level)
+   while(!all_assigned)
+   {
+      //printf("\n\nCurrent level: %d\n",current_level);
+      for(i=0;i<Nnodes;i++)
+      {
+         np = &Node[i];
+         if((np->level== current_level) && (np->type!=0)) // We assign values level-by-level. 
+         {
+            if(np->type == 1) // BRANCH: We assign it the value of its parent branch.
+            { 
+               //printf("Entered 1\n");
+               np->logical_value = np->unodes[0]->logical_value; // Branches will always have just 1 upnode.
+               //printf("node-%d is a Branch. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+            
+
+
+            if(np->type == 2) // XOR
+            {
+               //printf("Entered 2\n");
+               np->logical_value = 0; // 0^x = x; so we initialize the xor result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value ^ np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               //printf("node-%d is an XOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 3) // OR
+            {
+               //printf("Entered 3\n");
+               np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               //printf("node-%d is an OR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+
+
+            if(np->type == 4) // NOR
+            {
+               //printf("Entered 4\n");
+               np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NOR.
+               //printf("node-%d is a NOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            } 
+
+
+
+            if(np->type == 5) // NOT
+            {
+               //printf("Entered 5\n");
+               //printf("unode:%d    unode val:%d\n",np->unodes[0]->num,np->unodes[0]->logical_value);
+               if(np->unodes[0]->logical_value == -1) np->logical_value = -1;
+               else np->logical_value = 1 - np->unodes[0]->logical_value; // Invert.
+               //printf("node-%d is a NOT gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+
+
+            if(np->type == 6) // NAND
+            {
+               //printf("Entered 6\n");
+               np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NAND.
+               //printf("node-%d is a NAND gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+
+
+            if(np->type == 7) //AND
+            {
+               //printf("Entered 7\n");
+               np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               //printf("node-%d is an AND gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+         }
+
+         else
+         {
+            //printf("not entered for:: node:%d  level:%d\n",np->num,np->level);
+         }
+      }
+      current_level+=1;
+      all_assigned = all_levels_assigned();
+   }
+   printf("logicsim_single_pass() completed.\n\n");
+}
+
 //dfs:
 dfs(cp)
 char *cp;
@@ -1051,12 +1191,16 @@ char *cp;
    char fault_list[MAXLINE];
    char input_vector_list[MAXLINE];
    char line[MAXLINE];
-   
+
    sscanf(cp, "%s %s",fault_list,input_vector_list);
-   printf("input_vector_list: %s\n",input_vector_list);
-   int q = get_lines(fault_list);
+   printf("input_vector_list: %s\n\n",input_vector_list);
+   printf("fault_list: %s\n\n",fault_list);
+   float q = get_lines(fault_list); // Must be float otherwise q/W-1 itself gets rounded.
    int iterations = ceil(q/(W-1)); // No. of iterations = ceil(q/(W-1)).
-   struct pfs_node map[iterations];
+   int iteration_count=0;
+   int cycles = (q > W) ? W-1 : q;//No. of faults read in every iteration. 
+   printf("q:%f W:%d cycles: %d\n",q,W,cycles);
+   int node_number,logic_number;
    struct pfs_node current_input_vector[Npi];// Store PI node_num and its value.
 
    int i,j,k,l,a,b,c;
@@ -1068,7 +1212,7 @@ char *cp;
     f1 = fopen(input_vector_list,"r");
     fgets(line,MAXLINE,f1);// First line will give PI order.
     input_vector = strtok(line,",");
-    printf("strtok done\n");
+    //printf("strtok done\n\n");
     i=0;
 
     while(input_vector != NULL)
@@ -1082,58 +1226,92 @@ char *cp;
 
    while(!feof(f1)) // Perform pfs() for every input vector.
    {
-        fgets(line,MAXLINE,f1);// First line will give PI order.
-        printf("line: %s\n",line);
+        fgets(line,MAXLINE,f1);// From hereon line stores input vector.
+        //printf("line: %s\n\n",line);
         input_vector = strtok(line,",");
         i=0;
         while(input_vector != NULL)
         {
-            current_input_vector[i].node_num = atoi(input_vector);
+            current_input_vector[i].fault_type = atoi(input_vector);
             i+=1;
             input_vector = strtok(NULL,",");
         }
 
-
+        /*printf("Npi: %d\n",Npi);
         for(i=0;i<Npi;i++)
         {
-            printf("input: %d\n",current_input_vector[i].node_num);
+            printf("Node: %d    input: %d\n",current_input_vector[i].node_num,current_input_vector[i].fault_type);
         }
         printf("Exiting\n\n");
-        exit(-1);
+        exit(-1);*/
 
         for(i=0;i<Npi;i++)
         {
-            printf("Current input: %d\n",Pinput[i]->num);
+            //printf("Current input: %d\n",Pinput[i]->num);
             for(j=0;j<Npi;j++)
             {
                 if(Pinput[i]->num == current_input_vector[j].node_num)
                 {
                    Pinput[i]->logical_value = current_input_vector[j].fault_type;
-                   printf("assigning input %d to %d\n",Pinput[i]->num,current_input_vector[j].fault_type);  
+                   //printf("assigning input %d to %d\n",Pinput[i]->num,current_input_vector[j].fault_type);  
                 }
             }
             
         }
-        exit(-1);
 
-        for(i=0;i<Nnodes;i++)
+        /*for(i=0;i<Nnodes;i++)
         {
             np = &Node[i];
             printf("Input: %d   Value: %d\n",np->num,np->logical_value);
-        }
+        }*/
+
+
        // At this point we have initialized all the PIs.
        //logicsim_single_pass();
 
+      //Set fault map:
+      f = fopen(fault_list,"r");
+      k=1; // Because map[0] has the fault-free value hence, faults will 
+           //get stored starting from map[1].
 
-         //Initialize fault map:
-         for(j=0;j<iterations;j++)
-         {
-            map[j].node_num = -1;
-            map[j].fault_type = -1;
-         }
+      while(!feof(f))
+      {
+        fgets(line,MAXLINE,f);
+        sscanf(line,"%d@%d", &node_number,&logic_number);
+        map[k].node_num = node_number;
+        map[k].fault_type = logic_number;
+        k+=1;
+        //printf("Node:%d    Fault%d\n",map[k].node_num,map[k].fault_type);
+      }
+      fclose(f); //FAULT MAP HAS BEEN INITIALIZED NOW.
+
+      /*for(k=0;k<W;k++)
+      {
+        printf("index:%d Node:%d    Fault%d\n",k,map[k].node_num,map[k].fault_type);
+      }
+      printf("Exiting\n\n");
+      fclose(f);
+      exit(-1);*/
       
-   }
+      
+       
+      while(!feof(f))
+      {
+         for(i=0;i<iterations;i++)
+         {
+            for(j=1;j<=W-1;j++)
+            {
+                fgets(line,MAXLINE,f);
+                sscanf(line,"%d@%d", &node_number,&logic_number);
+                map[k].node_num = node_number;
+                map[k].fault_type = logic_number;
+            }
+         }
+         
+      
+      }
 
+    }
 }
 
 
