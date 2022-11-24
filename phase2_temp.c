@@ -592,18 +592,10 @@ char *cp;
                else found_uninitialized_input = 0; // Re-setting variable for next gate.
             }
          
-            //loop_count +=1;
-            
-            /*if(loop_count > 6294)
-            {
-               printf("LEVELIZTION OPERATED 6294 LINES. EXITING\n");
-               exit(-1);
-            }*/
+
          }
          assigned_all = all_levels_assigned();
-         //print_level();
-         //printf("\n");
-         //printf("assigned_all: %d\n",assigned_all);
+
       }
 
       loop_count = 1;
@@ -1034,20 +1026,7 @@ int get_lines(char *filename): Returns the number of lines in a file.
  }
 
 
-int all_levels_assigned()
-{
-   NSTRUC *np;
-   int i;
-   for(i=0;i<Nnodes;i++)
-   {
-      np = &Node[i];
-      if(np->level == -1) return 0;
-   }
-   return 1;
-}
-
-
-void rest_logic_val()
+void reset_logic_val()
 {
     NSTRUC *np;
     int i;
@@ -1057,15 +1036,20 @@ void rest_logic_val()
         np->logical_value = -1;
     }
 }
+
 void logicsim_single_pass()
 {
-    int i,j,k,current_level,node_number,logic_val;
-    int all_assigned=0;
-    current_level = 1; // We have already assigned logical values to all the nodes in level-0 
+   //printf("Entered LOGICSIM\n");
+   //reset_logic_val();
+   char line[MAXLINE];
+   int i,j,k,current_level,node_number,logic_val;
+   NSTRUC *np,tmp;
+   int max_level = get_max_level();
+
+   current_level = 1; // We have already assigned logical values to all the nodes in level-0 
    //                0     1    2   3    4    5    6     7
    // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
-   //while(!all_logics_assigned() && current_level<=max_level)
-   while(!all_assigned)
+   while(!all_logics_assigned() && current_level<=max_level)
    {
       //printf("\n\nCurrent level: %d\n",current_level);
       for(i=0;i<Nnodes;i++)
@@ -1077,10 +1061,8 @@ void logicsim_single_pass()
             { 
                //printf("Entered 1\n");
                np->logical_value = np->unodes[0]->logical_value; // Branches will always have just 1 upnode.
-               //printf("node-%d is a Branch. value assigned: %d\n\n",np->num,np->logical_value);
+               np->fault_list[0] = np->logical_value;
             }
-            
-
 
             if(np->type == 2) // XOR
             {
@@ -1091,6 +1073,7 @@ void logicsim_single_pass()
                   if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value ^ np->unodes[j]->logical_value;
                   else np->logical_value = -1;
                }
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
                //printf("node-%d is an XOR gate. value assigned: %d\n\n",np->num,np->logical_value);
             }
 
@@ -1103,10 +1086,10 @@ void logicsim_single_pass()
                   if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
                   else np->logical_value = -1;
                }
+
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
                //printf("node-%d is an OR gate. value assigned: %d\n\n",np->num,np->logical_value);
             }
-
-
 
             if(np->type == 4) // NOR
             {
@@ -1118,10 +1101,9 @@ void logicsim_single_pass()
                   else np->logical_value = -1;
                }
                if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NOR.
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
                //printf("node-%d is a NOR gate. value assigned: %d\n\n",np->num,np->logical_value);
             } 
-
-
 
             if(np->type == 5) // NOT
             {
@@ -1129,10 +1111,9 @@ void logicsim_single_pass()
                //printf("unode:%d    unode val:%d\n",np->unodes[0]->num,np->unodes[0]->logical_value);
                if(np->unodes[0]->logical_value == -1) np->logical_value = -1;
                else np->logical_value = 1 - np->unodes[0]->logical_value; // Invert.
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
                //printf("node-%d is a NOT gate. value assigned: %d\n\n",np->num,np->logical_value);
             }
-
-
 
             if(np->type == 6) // NAND
             {
@@ -1144,10 +1125,9 @@ void logicsim_single_pass()
                   else np->logical_value = -1;
                }
                if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NAND.
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
                //printf("node-%d is a NAND gate. value assigned: %d\n\n",np->num,np->logical_value);
             }
-
-
 
             if(np->type == 7) //AND
             {
@@ -1158,18 +1138,16 @@ void logicsim_single_pass()
                   if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
                   else np->logical_value = -1;
                }
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
                //printf("node-%d is an AND gate. value assigned: %d\n\n",np->num,np->logical_value);
             }
          }
-
-         else
-         {
-            //printf("not entered for:: node:%d  level:%d\n",np->num,np->level);
-         }
       }
       current_level+=1;
-      all_assigned = all_levels_assigned();
    }
+
+   // At this point all the nodes have been assigned a logical value and we have traversed
+   // all the levels. Hence, we now write the output logic values to the output files.
    printf("logicsim_single_pass() completed.\n\n");
 }
 
@@ -1197,7 +1175,7 @@ char *cp;
    printf("fault_list: %s\n\n",fault_list);
    float q = get_lines(fault_list); // Must be float otherwise q/W-1 itself gets rounded.
    int iterations = ceil(q/(W-1)); // No. of iterations = ceil(q/(W-1)).
-   int iteration_count=0;
+   int iteration_count=0,test_count=1;
    int cycles = (q > W) ? W-1 : q;//No. of faults read in every iteration. 
    printf("q:%f W:%d cycles: %d\n",q,W,cycles);
    int node_number,logic_number;
@@ -1226,6 +1204,7 @@ char *cp;
 
    while(!feof(f1)) // Perform pfs() for every input vector.
    {
+        printf("\n\n\n Running for test-vector-%d\n");
         fgets(line,MAXLINE,f1);// From hereon line stores input vector.
         //printf("line: %s\n\n",line);
         input_vector = strtok(line,",");
@@ -1267,23 +1246,32 @@ char *cp;
 
 
        // At this point we have initialized all the PIs.
-       //logicsim_single_pass();
+       logicsim_single_pass();
+       //exit(-1);
+
 
       //Set fault map:
       f = fopen(fault_list,"r");
-      k=1; // Because map[0] has the fault-free value hence, faults will 
-           //get stored starting from map[1].
 
       while(!feof(f))
       {
-        fgets(line,MAXLINE,f);
-        sscanf(line,"%d@%d", &node_number,&logic_number);
-        map[k].node_num = node_number;
-        map[k].fault_type = logic_number;
-        k+=1;
-        //printf("Node:%d    Fault%d\n",map[k].node_num,map[k].fault_type);
-      }
-      fclose(f); //FAULT MAP HAS BEEN INITIALIZED NOW.
+        for(j=1;j<=cycles;j++) // Because map[0] has the fault-free value hence, faults will get stored starting from map[1].
+        {
+            if(!feof(f))
+            {
+                fgets(line,MAXLINE,f);
+                sscanf(line,"%d@%d", &node_number,&logic_number);
+                map[j].node_num = node_number;
+                map[j].fault_type = logic_number;
+            }  
+        }
+        //FAULT MAP HAS BEEN INITIALIZED NOW.
+
+
+      } 
+
+
+
 
       /*for(k=0;k<W;k++)
       {
@@ -1295,21 +1283,7 @@ char *cp;
       
       
        
-      while(!feof(f))
-      {
-         for(i=0;i<iterations;i++)
-         {
-            for(j=1;j<=W-1;j++)
-            {
-                fgets(line,MAXLINE,f);
-                sscanf(line,"%d@%d", &node_number,&logic_number);
-                map[k].node_num = node_number;
-                map[k].fault_type = logic_number;
-            }
-         }
-         
       
-      }
 
     }
 }
