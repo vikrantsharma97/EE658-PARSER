@@ -58,8 +58,8 @@ lev()
 #include <string.h>
 #include <limits.h>
 #include <math.h>
-#define MAXLINE 81               /* Input buffer size */
-#define MAXNAME 31               /* File name size */
+#define MAXLINE 10000              /* Input buffer size */
+#define MAXNAME 5000               /* File name size */
 
 #define Upcase(x) ((isalpha(x) && islower(x))? toupper(x) : (x))
 #define Lowcase(x) ((isalpha(x) && isupper(x))? tolower(x) : (x))
@@ -80,6 +80,7 @@ struct fault{
    int fault_type;
 };
 
+
 int W = (int)(CHAR_BIT * sizeof(void *));
 
 typedef struct n_struc {
@@ -93,7 +94,16 @@ typedef struct n_struc {
    int level;                 /* level of the gate output */
    int logical_value;         /* For storing the logical value of every node.*/
    int fault_list[(int)(CHAR_BIT * sizeof(void *))];
-} NSTRUC;                     
+   //dfs
+   int num_fl[10000];
+   int type_fl[10000];
+   int count_fl;
+   //
+} NSTRUC;  
+
+
+
+
 
 /*----------------- Command definitions ----------------------------------*/
 #define NUMFUNCS 9
@@ -136,6 +146,9 @@ char current_read_file[MAXLINE];
 //logicsim():
 char input_file_logicsim[MAXLINE];
 char output_file_logicsim[MAXLINE];
+//dfs():
+char input_file_dfs[MAXLINE];
+char output_file_dfs[MAXLINE];
 // No. of nodes is Nnodes(declared on line 102).
 // No. of primary inputs is Npi(declared on line 103).
 // No. of primary outputs is Npo(declared on line 104).
@@ -693,7 +706,7 @@ char *ip;
    //printf("Entered LOGICSIM\n");
    //printf("input file: %s\n",input_file_logicsim);
    //printf("output file: %s\n",output_file_logicsim);
-   char line[10000];
+   char line[2000];
    int i,j,k,current_level,node_number,logic_val;
    NSTRUC *np,tmp;
    int max_level = get_max_level();
@@ -1060,15 +1073,976 @@ int logicsim_single_pass(int pinputs[Npi])
 }
 
 */
+/*struct union_op(struct dfs_faultlist a, int dfs_indx1, struct dfs_faultlist b, int dfs_indx2)
+{
+    int i = 0, j = 0, k=0;
+    struct dfs_faultlist uni;
 
-
+    while (i < dfs_indx1 && j < dfs_indx2) {
+        if (a.num[i] < b.num[j]){
+          uni.num[k++]=a.num[i++];
+          uni.type[k++]=a.type[i++];  
+          //printf(" %d ", a.num[i++]);  
+        } 
+        else if (b.num[j] < a.num[i]){ 
+            uni.num[k++]=b.num[i++];
+            uni.type[k++]=b.type[i++];
+            //printf(" %d ", b.num[j++]);
+         }   
+        else {
+            uni.num[k++]=b.num[i++];
+            uni.type[k++]=b.type[i++];
+            //printf(" %d ", b.num[j++]);
+            i++;
+        }
+    }
+ 
+    
+    while (i < dfs_indx1){
+        uni.num[k++]=a.num[i++];
+        uni.type[k++]=a.type[i++];
+        //printf(" %d ", a.num[i++]);
+      }  
+    while (j < dfs_indx2){
+        uni.num[k++]=b.num[i++];
+        uni.type[k++]=b.type[i++];
+        //printf(" %d ", b.num[j++]);
+      }  
+}*/
+int removerepeated(NSTRUC *np1);
+void sort(NSTRUC *np1);
+void union_op(NSTRUC *np1, NSTRUC *np2) //np1 is gate output
+{
+    int i,size1,size2,size,j=0,k;
+    int a[size1],b[size2],uni[size1+size2];
+    //printf("%d ",np2->count_fl); 
+    //printf("%d ",np1->type_fl[0]); 
+    //union start
+    size=np2->count_fl;
+    //printf("%d ",size); 
+    for(i=0;i<(size);i++){
+         //printf("inside loop");
+        np1->num_fl[np1->count_fl]=np2->num_fl[i];
+        np1->type_fl[np1->count_fl]=np2->type_fl[i];
+        //uni[j]=b[i];
+        //printf("%d ",np1->num_fl[i]);
+        np1->count_fl++;
+    }
+    //printf("%d ",np1->type_fl[0]);
+    //Sorting
+    sort(np1);
+    //printf("%d ",np1->type_fl[0]);
+    //Remove repeated elements
+    np1->count_fl=removerepeated(np1);
+    //printf("%d ",np1->type_fl[0]);
+    //printf("%d ",np1->count_fl);
+    //printf("Array afetr Union \n");
+    //printf("union res node=%d\n",np1->num);
+    for(i=0;i<np1->count_fl;i++){
+        //printf("%d@%d ",np1->num_fl[i],np1->type_fl[i]);
+    }
+    //printf("\n");
+    //Sorting
+}
+int removerepeated(NSTRUC *np1){
+    int i,j,k;
+    for(i=0;i<np1->count_fl;i++){
+        for(j=i+1;j<np1->count_fl;){
+            if(np1->num_fl[i]==np1->num_fl[j]){
+                for(k=j;k<np1->count_fl;k++){
+                    np1->num_fl[k]=np1->num_fl[k+1];
+                    np1->type_fl[k]=np1->type_fl[k+1];
+                }
+                np1->count_fl--;
+            }
+            else{
+                j++;
+            }
+        }
+    }
+    return(np1->count_fl);
+}
+void sort(NSTRUC *np1){
+    int i,j,temp_num,temp_type;
+    for(i=0;i<np1->count_fl;i++){
+        for(j=i+1;j<np1->count_fl;j++){
+            if(np1->num_fl[i]>np1->num_fl[j]){
+                temp_num=np1->num_fl[i];
+                temp_type=np1->type_fl[i];
+                np1->num_fl[i]=np1->num_fl[j];
+                np1->type_fl[i]=np1->type_fl[j];
+                np1->num_fl[j]=temp_num;
+                np1->type_fl[j]=temp_type;
+            }
+        }
+    }
+}//end of union_op
+int removerepeated_int(NSTRUC *np1);
+void sort_int(NSTRUC *np1);
+void interjection_op(NSTRUC *np1, NSTRUC *np2)
+{
+   int i,size1,size2,size,j=0,k;
+    //int a[size1],b[size2],ini[size1+size2];
+    size1=np1->count_fl;
+    size2=np2->count_fl;
+    int ini_num[size1];
+    int ini_type[size1];
+    k=0;
+    //printf("interjection res node=%d, %d\n",np1->num,np2->num); 
+    //printf("np1 array of faults\n");
+    //for(i=0;i<size1;i++) printf("%d@%d ",np1->num_fl[i],np1->type_fl[i]);
+    //printf("\n");
+    //printf("np2 array of faults\n");
+    //for(i=0;i<size2;i++) printf("%d@%d ",np2->num_fl[i],np2->type_fl[i]);
+    //printf("\n");
+    for(i=0;i<size1;i++)
+    {
+      for(j=0;j<size2;j++)
+      {
+         //printf("comparing %d %d\n",np1->num_fl[i],np2->num_fl[j]);
+         if(np1->num_fl[i]==np2->num_fl[j])
+         {
+            //printf("Storing=%d by comparing %d %d\n",np2->num_fl[j], np1->num_fl[i],np2->num_fl[j]);
+            ini_num[k]=np2->num_fl[j];
+            ini_type[k]=np2->type_fl[j];
+            k++;
+         }
+      }
+    }
+    np1->count_fl=k;
+    for(i=0;i<k;i++)
+    {
+      np1->num_fl[i]=ini_num[i];
+      np1->type_fl[i]=ini_type[i];
+    }
+    //Sorting
+    sort_int(np1);
+    //Remove repeated elements
+    np1->count_fl=removerepeated_int(np1);
+    //printf("interjection res node=%d, %d\n",np1->num,np2->num); 
+    //printf("res count_fl=%d\n",np1->count_fl); 
+    for(i=0;i<np1->count_fl;i++){
+        //printf("%d@%d ",np1->num_fl[i],np1->type_fl[i]);
+    }
+    //printf("\n");
+    //Sorting
+}
+int removerepeated_int(NSTRUC *np1){
+    int i,j,k;
+    for(i=0;i<np1->count_fl;i++){
+        for(j=i+1;j<np1->count_fl;){
+            if(np1->num_fl[i]==np1->num_fl[j]){
+                for(k=j;k<np1->count_fl;k++){
+                    np1->num_fl[k]=np1->num_fl[k+1];
+                    np1->type_fl[k]=np1->type_fl[k+1];
+                }
+                np1->count_fl--;
+            }
+            else{
+                j++;
+            }
+        }
+    }
+    return(np1->count_fl);
+}
+void sort_int(NSTRUC *np1){
+    int i,j,temp_num,temp_type;
+    for(i=0;i<np1->count_fl;i++){
+        for(j=i+1;j<np1->count_fl;j++){
+            if(np1->num_fl[i]>np1->num_fl[j]){
+                temp_num=np1->num_fl[i];
+                temp_type=np1->type_fl[i];
+                np1->num_fl[i]=np1->num_fl[j];
+                np1->type_fl[i]=np1->type_fl[j];
+                np1->num_fl[j]=temp_num;
+                np1->type_fl[j]=temp_type;
+            }
+        }
+    }
+}
+int removerepeated_aminusb(NSTRUC *np1);
+void sort_aminusb(NSTRUC *np1);
+void AminusB(NSTRUC *np1, NSTRUC *np2)
+{
+   int i,size1,size2,size,j=0,k;
+    //int a[size1],b[size2],ini[size1+size2];
+    size1=np1->count_fl;
+    size2=np2->count_fl;
+    int ini_num[size1];
+    int ini_type[size1];
+    int found=0;
+    k=0;
+    //for(i=0;i<size1;i++) printf("%d ",np1->num_fl[i]);
+    //printf("\n");
+    //for(i=0;i<size2;i++) printf("%d ",np2->num_fl[i]);
+    //printf("\n");
+    for(i=0;i<size1;i++)
+    {
+      for(j=0;j<size2;j++)
+      {
+         if(np1->num_fl[i]==np2->num_fl[j]) found=1; 
+      }
+      if(found==0)
+      {
+         //if(np1->num_fl[i]!=np2->num_fl[j])
+         {
+            //printf("storing=%d\n",np1->num_fl[i]);
+            ini_num[k]=np1->num_fl[i];
+            ini_type[k]=np1->type_fl[i];
+            k=k+1;
+         }
+      }
+      //else printf("duplicate=%d\n",np1->num_fl[i]);
+      found=0;
+    }
+    np1->count_fl=k;
+    for(i=0;i<k;i++)
+    {
+      np1->num_fl[i]=ini_num[i];
+      np1->type_fl[i]=ini_type[i];
+    }
+    //Sorting
+    sort_aminusb(np1);
+    //Remove repeated elements
+    np1->count_fl=removerepeated_aminusb(np1);
+   //printf("a-b res node=%d\n",np1->num);
+    for(i=0;i<np1->count_fl;i++){
+        //printf("%d@%d ",np1->num_fl[i],np1->type_fl[i]);
+    }
+    //printf("\n");
+    //Sorting
+}
+int removerepeated_aminusb(NSTRUC *np1){
+    int i,j,k;
+    for(i=0;i<np1->count_fl;i++){
+        for(j=i+1;j<np1->count_fl;){
+            if(np1->num_fl[i]==np1->num_fl[j]){
+                for(k=j;k<np1->count_fl;k++){
+                    np1->num_fl[k]=np1->num_fl[k+1];
+                    np1->type_fl[k]=np1->type_fl[k+1];
+                }
+                np1->count_fl--;
+            }
+            else{
+                j++;
+            }
+        }
+    }
+    return(np1->count_fl);
+}
+void sort_aminusb(NSTRUC *np1){
+    int i,j,temp_num,temp_type;
+    for(i=0;i<np1->count_fl;i++){
+        for(j=i+1;j<np1->count_fl;j++){
+            if(np1->num_fl[i]>np1->num_fl[j]){
+                temp_num=np1->num_fl[i];
+                temp_type=np1->type_fl[i];
+                np1->num_fl[i]=np1->num_fl[j];
+                np1->type_fl[i]=np1->type_fl[j];
+                np1->num_fl[j]=temp_num;
+                np1->type_fl[j]=temp_type;
+            }
+        }
+    }
+} 
 
 //dfs:
 dfs(cp)
 char *cp;
 {
-   printf("Entered dfs\n");
-}
+   sscanf(cp, "%s %s", input_file_dfs,output_file_dfs);
+   char line[10000];
+   int i,j,k,current_level,node_number,logic_val;
+   NSTRUC *np,tmp;
+   int max_level = get_max_level();
+   
+   FILE *file_ptr;
+   file_ptr = fopen(input_file_dfs,"r");
+   FILE *file_ptr2;
+   file_ptr2 = fopen(output_file_dfs,"w");
+   char *pt;
+   const char *comp_x = "x";
+   const char *comp_X = "X";
+   int first_line =0;
+   int node_no[Npi];
+   char logicvalue[10000][Npi];
+   for(i=0; i<1000; i++) memset(logicvalue[i],0,strlen(logicvalue[i]));
+   int a=0, b=0; //a is # input patterns, b used internally which is basically Npi
+   int x,y,c;
+   //**********************************************
+   //************DFS input*************************
+   //struct dfs_faultlist dfs_fl[Nnodes];
+   //int dfs_indx=0;
+   NSTRUC *temp_xor_union;
+   NSTRUC *temp_xor_int;
+   temp_xor_union = (NSTRUC *) malloc(sizeof(NSTRUC));
+   temp_xor_int = (NSTRUC *) malloc(sizeof(NSTRUC));
+   // Assigning logical value to the Primary inputs:
+   int non_cont, cont;
+   int non_cont_indx[100],cont_indx[100];
+   int count;
+   //************************************************
+   while(!feof(file_ptr))
+   {
+      memset(line,0,strlen(line));
+      fgets(line,10000,file_ptr);
+      //printf("%d\n", strlen(line));
+      //printf("%s",line);
+      if(line[strlen(line)-1]=='\n') line[strlen(line)-1]='\0';
+      if(strlen(line)==0) break;
+      //printf("%s",line);
+      if(first_line==0){
+         i=0;
+         pt = strtok (line,",");
+         while (pt != NULL) {
+            node_no[i] = atoi(pt);
+            //printf("%d", node_no[i]);
+            pt = strtok (NULL, ",");
+            i++;
+         }
+         first_line++;
+      }
+      else{
+         pt = strtok (line,",");
+         while (pt != NULL) {
+            //printf("%s",pt);
+            if((strcmp(pt, comp_x)==0)||(strcmp(pt, comp_X)==0)){ 
+            logicvalue[a][b] = -1;   
+            //printf("%d", logicvalue[a][b]);
+            }
+            else{
+                logicvalue[a][b] = atoi(pt);
+            }    
+            //printf("%d", logicvalue[a][b]);
+            pt = strtok (NULL, ",");
+            //printf("%s",pt);
+            b++;
+         }
+         b=0;
+         //printf("\n");
+         a++;
+      } 
+      //sscanf(line,"%d,%d",&node_number,&logic_val);
+      // Can we reduce time complexity by using Pinput[] and Npi?
+       
+   }
+   fclose(file_ptr);
+   //int x=0;
+   for(x=0;x<(a);x++)
+   {
+      temp_xor_union->count_fl=0;
+      temp_xor_int->count_fl=0;
+      for(i=0;i<Nnodes;i++)
+      {
+         np=&Node[i];
+         np->count_fl=0;
+      }
+       for(y=0;y<Npi;y++) 
+       {
+         //printf("current node: %d\n",Pinput[i]->num);
+          if(Pinput[y]->num == node_no[y])
+          { Pinput[y]->logical_value = logicvalue[x][y];
+            //printf("node-%d assigned value: %d\n",Pinput[i]->num,Pinput[i]->logical_value);
+            //x++;
+          }
+       }      
+   //printf("x=%d",x);
+   /*int c,d;
+      for( c=0;c<a-1;c++){
+         for( d=0;d<Npi;d++) printf("%d",logicvalue[c][d]);
+         printf("\n");
+      }*/
+
+   //----------------PIs have been assigned their logical value-------------------------
+
+   //printf("Logic value assigned to all PIs\n");
+   //printf("PI logic values: \n");
+   //for(i=0;i<Npi;i++)
+   //{
+      
+      //printf("node:%d   val:%d\n",Pinput[i]->num,Pinput[i]->logical_value);
+   //}
+   
+
+   current_level = 1; // We have already assigned logical values to all the nodes in level-0 
+   //                0     1    2   3    4    5    6     7
+   // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
+   //while(!all_logics_assigned() && current_level<=max_level)
+   while(current_level<=max_level)
+   {
+      //printf("\n\nCurrent level: %d\n",current_level);
+      for(i=0;i<Nnodes;i++)
+      {
+         np = &Node[i];
+         if((np->level== current_level) && (np->type!=0)) // We assign values level-by-level. 
+         {
+            if(np->type == 1) // BRANCH: We assign it the value of its parent branch.
+            { 
+               //printf("Entered 1\n");
+               np->logical_value = np->unodes[0]->logical_value; // Branches will always have just 1 upnode.
+               //printf("node-%d is a Branch. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+            
+
+
+            if(np->type == 2) // XOR
+            {
+               //printf("Entered 2\n");
+               np->logical_value = 0; // 0^x = x; so we initialize the xor result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value ^ np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               //printf("node-%d is an XOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 3) // OR
+            {
+               //printf("Entered 3\n");
+               np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               //printf("node-%d is an OR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+
+
+            if(np->type == 4) // NOR
+            {
+               //printf("Entered 4\n");
+               np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NOR.
+               //printf("node-%d is a NOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            } 
+
+
+
+            if(np->type == 5) // NOT
+            {
+               //printf("Entered 5\n");
+               //printf("unode:%d    unode val:%d\n",np->unodes[0]->num,np->unodes[0]->logical_value);
+               if(np->unodes[0]->logical_value == -1) np->logical_value = -1;
+               else np->logical_value = 1 - np->unodes[0]->logical_value; // Invert.
+               //printf("node-%d is a NOT gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+
+
+            if(np->type == 6) // NAND
+            {
+               //printf("Entered 6\n");
+               np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NAND.
+               //printf("node-%d is a NAND gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+
+
+            if(np->type == 7) //AND
+            {
+               //printf("Entered 7\n");
+               np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               //printf("node-%d is an AND gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+         }
+
+         else
+         {
+            //printf("not entered for:: node:%d  level:%d\n",np->num,np->level);
+         }
+      }
+      current_level+=1;
+   }
+   // At this point all the nodes have been assigned a logical value and we have traversed
+   // all the levels. Hence, we now write the output logic values to the output files.
+   //******************************
+   //DFS start:
+   //******************************
+   for(i=0;i<Npi;i++)
+   {
+      Pinput[i]->num_fl[Pinput[i]->count_fl]=Pinput[i]->num;
+      Pinput[i]->type_fl[Pinput[i]->count_fl]=1-(Pinput[i]->logical_value);
+      Pinput[i]->count_fl=Pinput[i]->count_fl+1;
+      //union_op(Pinput[i],Pinput[i]);
+      //interjection_op(Pinput[i],Pinput[i]);
+      //AminusB(Pinput[i],Pinput[i]);
+   }
+   current_level = 1; // We have already assigned logical values to all the nodes in level-0 
+   //                0     1    2   3    4    5    6     7
+   // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
+   //while(!all_logics_assigned() && current_level<=max_level)
+   while(current_level<=max_level)
+   {
+      //printf("\n\nCurrent level: %d\n",current_level);
+      for(i=0;i<Nnodes;i++)
+      {
+         np = &Node[i];
+         
+         
+         if((np->level== current_level) && (np->type!=0)) // We assign values level-by-level. 
+         {
+            np->num_fl[np->count_fl]=np->num;
+            np->type_fl[np->count_fl]=1-(np->logical_value);
+            np->count_fl=np->count_fl+1;
+            //printf("%d@%d ",np->num_fl,np->type_fl);
+         
+            if(np->type == 1) // BRANCH: We assign it the value of its parent branch.
+            { 
+               //printf("\nEntered branch for node=%d\n",np->num);
+               union_op(np, np->unodes[0]);
+               //printf("count_fl=%d np->num_fl[0]=%d np->type_fl[0]=%d\n",np->count_fl, np->num_fl[0], np->type_fl[0]);
+               //printf("count_fl=%d np->num_fl[1]=%d np->type_fl[1]=%d\n\n",np->count_fl, np->num_fl[1], np->type_fl[1]); 
+               //count=np->count_fl;
+               //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+               //np->logical_value = np->unodes[0]->logical_value; // Branches will always have just 1 upnode.
+               //printf("node-%d is a Branch. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+            
+
+
+            if(np->type == 2) // XOR
+            {
+               temp_xor_union->num=np->unodes[0]->num;
+               temp_xor_int->num=np->unodes[0]->num;
+               temp_xor_union->count_fl=np->unodes[0]->count_fl;
+               temp_xor_int->count_fl=np->unodes[0]->count_fl;
+               for(j=0;j<np->unodes[0]->count_fl;j++)
+               {
+                  temp_xor_union->num_fl[j]=np->unodes[0]->num_fl[j];
+                  temp_xor_int->num_fl[j]=np->unodes[0]->num_fl[j];
+                  temp_xor_union->type_fl[j]=np->unodes[0]->type_fl[j];
+                  temp_xor_int->type_fl[j]=np->unodes[0]->type_fl[j];
+               }
+               /*printf("current node=%d\n",np->num);
+               printf("unode list=%d\n",np->unodes[0]->num);
+               for(j=0;j<np->unodes[0]->count_fl;j++)
+                  printf("%d@%d ",np->unodes[0]->num_fl[j], np->unodes[0]->type_fl[j]);
+
+               printf("\n\ntemp_xor_union");
+               for(j=0;j<temp_xor_union->count_fl;j++)
+                  printf("%d@%d ",temp_xor_union->num_fl[j], temp_xor_union->type_fl[j]);
+               
+               printf("\n\ntemp_xor_int");
+               for(j=0;j<temp_xor_int->count_fl;j++)
+                  printf("%d@%d ",temp_xor_int->num_fl[j], temp_xor_int->type_fl[j]);*/
+
+               //printf("\n\n");   
+               //exit(-1);
+               //la U lb - la n lb
+               //printf("Entered 2\n");
+               /*printf("unode list=%d\n",np->unodes[0]->num);
+               for(j=0;j<np->unodes[0]->count_fl;j++)
+                  printf("%d@%d ",np->unodes[0]->num_fl[j], np->unodes[0]->type_fl[j]);
+               printf("\n");   
+               printf("unode list=%d\n",np->unodes[1]->num);
+               for(j=0;j<np->unodes[1]->count_fl;j++)
+                  printf("%d@%d ",np->unodes[1]->num_fl[j], np->unodes[1]->type_fl[j]);
+
+               printf("\n");*/
+               for(j=1;j<np->fin;j++)
+               {
+                  union_op(temp_xor_union,np->unodes[j]);
+                  interjection_op(temp_xor_int, np->unodes[j]);
+               }
+               /*printf("count_fl of temp_xor_union=%d\n",temp_xor_union->count_fl);
+               printf("union_op:\n");
+               for(j=0;j<temp_xor_union->count_fl;j++)
+               { 
+                  printf("%d@%d ",temp_xor_union->num_fl[j], temp_xor_union->type_fl[j]);
+               }
+
+               printf("\n\ninterjection:\n");
+               for(j=0;j<temp_xor_int->count_fl;j++) 
+                  printf("%d@%d ",temp_xor_int->num_fl[j], temp_xor_int->type_fl[j]);*/   
+               AminusB(temp_xor_union,temp_xor_int);
+               union_op(np,temp_xor_union);
+               
+               /*printf("AminusB:\n");
+               for(j=0;j<temp_xor_union->count_fl;j++) 
+                  printf("%d@%d ",temp_xor_union->num_fl[j], temp_xor_union->type_fl[j]);
+               
+               printf("\n\nfinal xor fl\n");
+               for(j=0;j<np->count_fl;j++) 
+                  printf("%d@%d ",np->num_fl[j], np->type_fl[j]);   
+
+               printf("existing xor\n");
+               exit(-1);*/
+               //printf("node-%d is an XOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 3) // OR
+            {
+               //printf("current node in dfs=%d\n",np->num);
+               //printf("current nand gate=%d\n",np->num);
+               non_cont=0;
+               cont=0;
+               for(j=0;j<np->fin;j++)
+               {
+                  //printf("inside np->fin=%d\n",np->fin);
+                  if(np->unodes[j]->logical_value==0)
+                  {  
+                     //printf("1.unodes[%d]=%d, %d\n",j,np->unodes[j]->num,np->unodes[j]->logical_value);
+                     non_cont_indx[non_cont]=j;
+                     non_cont++;
+                     //printf("non controlling count for %d=%d\n",np->num,non_cont);
+                  }
+                  if(np->unodes[j]->logical_value==1){ 
+                     //printf("2.unodes[%d]=%d\n",j,np->unodes[j]->num);
+                     cont_indx[cont]=j;
+                     cont++;
+                  }   
+               }
+               //exit(-1);
+               if(non_cont==np->fin)
+               {
+                  //printf("inside ");
+                  for(j=0;j<(np->fin-1);j++)
+                  {
+                     union_op(np->unodes[j+1],np->unodes[j]);
+                  }
+                  union_op(np,np->unodes[np->fin-1]);
+               }
+               else if(cont>=1)
+               {
+                  //for(j=0;j<cont-1;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+                  if(cont==1)
+                  {
+                     //printf("cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<cont-1;j++)
+                     {
+                        interjection_op(np->unodes[cont_indx[j+1]],np->unodes[cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(non_cont==1)
+                  {
+                     //printf("non_cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<non_cont-1;j++)
+                     {
+                        union_op(np->unodes[non_cont_indx[j+1]],np->unodes[non_cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(cont>0 && non_cont>0)
+                  { 
+                     //printf("AminusB visted for node=%d\n",np->num);
+                     AminusB(np->unodes[cont_indx[cont-1]],np->unodes[non_cont_indx[non_cont-1]]);
+                     //printf("AMinusB is done\n");
+                     //exit(-1);
+                  }
+
+
+                  //printf("union visted for node=%d\n",np->num);
+                  union_op(np,np->unodes[cont_indx[cont-1]]); 
+                  //printf("union visted for node=%d\n",np->num);
+                  //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]); 
+                  //printf("\n");
+                  //printf("inside non_cont else\n");
+                  //exit(-1);
+               }
+               //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+            }
+
+
+
+            if(np->type == 4) // NOR
+            {
+               //printf("current node in dfs=%d\n",np->num);
+               //printf("current nand gate=%d\n",np->num);
+               non_cont=0;
+               cont=0;
+               for(j=0;j<np->fin;j++)
+               {
+                  //printf("inside np->fin=%d\n",np->fin);
+                  if(np->unodes[j]->logical_value==0)
+                  {  
+                     //printf("1.unodes[%d]=%d, %d\n",j,np->unodes[j]->num,np->unodes[j]->logical_value);
+                     non_cont_indx[non_cont]=j;
+                     non_cont++;
+                     //printf("non controlling count for %d=%d\n",np->num,non_cont);
+                  }
+                  if(np->unodes[j]->logical_value==1){ 
+                     //printf("2.unodes[%d]=%d\n",j,np->unodes[j]->num);
+                     cont_indx[cont]=j;
+                     cont++;
+                  }   
+               }
+               //exit(-1);
+               if(non_cont==np->fin)
+               {
+                  //printf("inside ");
+                  for(j=0;j<(np->fin-1);j++)
+                  {
+                     union_op(np->unodes[j+1],np->unodes[j]);
+                  }
+                  union_op(np,np->unodes[np->fin-1]);
+               }
+               else if(cont>=1)
+               {
+                  //for(j=0;j<cont-1;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+                  if(cont==1)
+                  {
+                     //printf("cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<cont-1;j++)
+                     {
+                        interjection_op(np->unodes[cont_indx[j+1]],np->unodes[cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(non_cont==1)
+                  {
+                     //printf("non_cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<non_cont-1;j++)
+                     {
+                        union_op(np->unodes[non_cont_indx[j+1]],np->unodes[non_cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(cont>0 && non_cont>0)
+                  { 
+                     //printf("AminusB visted for node=%d\n",np->num);
+                     AminusB(np->unodes[cont_indx[cont-1]],np->unodes[non_cont_indx[non_cont-1]]);
+                     //printf("AMinusB is done\n");
+                     //exit(-1);
+                  }
+
+
+                  //printf("union visted for node=%d\n",np->num);
+                  union_op(np,np->unodes[cont_indx[cont-1]]); 
+                  //printf("union visted for node=%d\n",np->num);
+                  //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]); 
+                  //printf("\n");
+                  //printf("inside non_cont else\n");
+                  //exit(-1);
+               }
+               //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+            } 
+
+
+
+            if(np->type == 5) // NOT
+            {
+               union_op(np,np->unodes[0]);
+            }
+
+            if(np->type == 6) // NAND
+            {
+               //printf("current node in dfs=%d\n",np->num);
+               //printf("current nand gate=%d\n",np->num);
+               non_cont=0;
+               cont=0;
+               for(j=0;j<np->fin;j++)
+               {
+                  //printf("inside np->fin=%d\n",np->fin);
+                  if(np->unodes[j]->logical_value==1)
+                  {  
+                     //printf("1.unodes[%d]=%d, %d\n",j,np->unodes[j]->num,np->unodes[j]->logical_value);
+                     non_cont_indx[non_cont]=j;
+                     non_cont++;
+                     //printf("non controlling count for %d=%d\n",np->num,non_cont);
+                  }
+                  if(np->unodes[j]->logical_value==0){ 
+                     //printf("2.unodes[%d]=%d\n",j,np->unodes[j]->num);
+                     cont_indx[cont]=j;
+                     cont++;
+                  }   
+               }
+               //exit(-1);
+               if(non_cont==np->fin)
+               {
+                  //printf("inside ");
+                  for(j=0;j<(np->fin-1);j++)
+                  {
+                     union_op(np->unodes[j+1],np->unodes[j]);
+                  }
+                  union_op(np,np->unodes[np->fin-1]);
+               }
+               else if(cont>=1)
+               {
+                  //for(j=0;j<cont-1;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+                  if(cont==1)
+                  {
+                     //printf("cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<cont-1;j++)
+                     {
+                        interjection_op(np->unodes[cont_indx[j+1]],np->unodes[cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(non_cont==1)
+                  {
+                     //printf("non_cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<non_cont-1;j++)
+                     {
+                        union_op(np->unodes[non_cont_indx[j+1]],np->unodes[non_cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(cont>0 && non_cont>0)
+                  { 
+                     //printf("AminusB visted for node=%d\n",np->num);
+                     AminusB(np->unodes[cont_indx[cont-1]],np->unodes[non_cont_indx[non_cont-1]]);
+                     //printf("AMinusB is done\n");
+                     //exit(-1);
+                  }
+
+
+                  //printf("union visted for node=%d\n",np->num);
+                  union_op(np,np->unodes[cont_indx[cont-1]]); 
+                  //printf("union visted for node=%d\n",np->num);
+                  //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]); 
+                  //printf("\n");
+                  //printf("inside non_cont else\n");
+                  //exit(-1);
+               }
+               //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+            }
+
+
+            if(np->type == 7) //AND
+            {
+               //printf("current node in dfs=%d\n",np->num);
+               //printf("current nand gate=%d\n",np->num);
+               non_cont=0;
+               cont=0;
+               for(j=0;j<np->fin;j++)
+               {
+                  //printf("inside np->fin=%d\n",np->fin);
+                  if(np->unodes[j]->logical_value==1)
+                  {  
+                     //printf("1.unodes[%d]=%d, %d\n",j,np->unodes[j]->num,np->unodes[j]->logical_value);
+                     non_cont_indx[non_cont]=j;
+                     non_cont++;
+                     //printf("non controlling count for %d=%d\n",np->num,non_cont);
+                  }
+                  if(np->unodes[j]->logical_value==0){ 
+                     //printf("2.unodes[%d]=%d\n",j,np->unodes[j]->num);
+                     cont_indx[cont]=j;
+                     cont++;
+                  }   
+               }
+               //exit(-1);
+               if(non_cont==np->fin)
+               {
+                  //printf("inside ");
+                  for(j=0;j<(np->fin-1);j++)
+                  {
+                     union_op(np->unodes[j+1],np->unodes[j]);
+                  }
+                  union_op(np,np->unodes[np->fin-1]);
+               }
+               else if(cont>=1)
+               {
+                  //for(j=0;j<cont-1;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+                  if(cont==1)
+                  {
+                     //printf("cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<cont-1;j++)
+                     {
+                        interjection_op(np->unodes[cont_indx[j+1]],np->unodes[cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(non_cont==1)
+                  {
+                     //printf("non_cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<non_cont-1;j++)
+                     {
+                        union_op(np->unodes[non_cont_indx[j+1]],np->unodes[non_cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(cont>0 && non_cont>0)
+                  { 
+                     //printf("AminusB visted for node=%d\n",np->num);
+                     AminusB(np->unodes[cont_indx[cont-1]],np->unodes[non_cont_indx[non_cont-1]]);
+                     //printf("AMinusB is done\n");
+                     //exit(-1);
+                  }
+
+
+                  //printf("union visted for node=%d\n",np->num);
+                  union_op(np,np->unodes[cont_indx[cont-1]]); 
+                  //printf("union visted for node=%d\n",np->num);
+                  //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]); 
+                  //printf("\n");
+                  //printf("inside non_cont else\n");
+                  //exit(-1);
+               }
+               //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+            }
+         }
+         else
+         {
+            //printf("not entered for:: node:%d  level:%d\n",np->num,np->level);
+         }
+         //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+      }
+      current_level+=1;
+   } 
+   for(j=0;j<Npo-1;j++)
+   {
+      union_op(Poutput[j+1],Poutput[j]);
+   } 
+   //printf("final dfs list\n");
+   //for(j=0;j<Poutput[Npo-1]->count_fl;j++) printf("%d@%d ",Poutput[Npo-1]->num_fl[j],Poutput[Npo-1]->type_fl[j]);
+   //printf("\n");
+   for(j=0;j<Poutput[Npo-1]->count_fl;j++) fprintf(file_ptr2,"%d@%d\n",Poutput[Npo-1]->num_fl[j],Poutput[Npo-1]->type_fl[j]); 
+   fclose(file_ptr2);
+   //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);   
+   }// end of for loop     
+}//dfs end
 
 
 
@@ -1076,117 +2050,7 @@ char *cp;
 pfs(cp)
 char *cp;
 {
-   /*
-    Function call:
-    pfs <fault_list> <input_list>
-   */
-
-   /*
-   struct fault{
-   int node_num;
-   int fault_type;
-   };
-   */
-
-   printf("Entered pfs\n");
-   FILE *f,*f1;
-   char fault_list[MAXLINE];
-   char input_vector_list[MAXLINE];
-   sscanf(cp, "%s %s", fault_list,input_vector_list);
-
-   int q = get_lines(fault_list);
-   int iterations = ceil(q/(W-1)); // No. of iterations = ceil(q/(W-1)).
    
-   struct fault map[iterations];
-   struct fault current_input_vector[Npi];// Store PI node_num and its value.
-   int i,j,k,l,a,b,c;
-   int iter=0; // Iteration number.
-   NSTRUC *np;
-   
-   f1 = fopen(input_vector_list,"r");
-
-   /*
-      fgets(); // First line will give PI order.
-      temp[] = split string at comma.
-
-      for(i=0;i<Npi;i++)
-      {
-         input[i].node_num = temp[i];
-      }
-      input vectors start from next line onwards i.e. line-2.
-   */
-
-
-   //while(!feof(f1)) // Perform pfs() for every input vector.
-   {
-      /*
-         INITIALIZE ALL PIs:
-         Read input vector:
-         for(i=0;i<Npi;i++)
-         {
-            np = &Pinput[i];
-            np->logical_val = current_input_vector[]
-         }
-      */
-       
-       // At this point we have initialized all the PIs.
-       //logicsim_single_pass();
-
-
-      /*
-      //Initialize fault map:
-      
-      
-         for(j=0;j<iterations;j++)
-         {
-            map[j].node_num = -1;
-            map[j].fault_type = -1;
-         }
-      */
-
-      //Set fault map:
-      i=1;// Because map[0] has the fault-free value hence, faults will
-          //get stored starting from map[1]. 
-
-      f = fopen(fault_list,"r");
-      while(!feof(f))
-      {
-         /*
-         for(k=0;k<iterations;k++)
-         {
-            if(!feof(f)) 
-            {
-               fgets(); // Since iterations comes from ceil(), 
-               //its possible in the end that we may reach EOF before completing the iteration.
-               node_num =?
-               fault_type=? 
-               map[i].node_num = node_num;
-               map[i].fault_type = fault_type;
-               i+=1;   
-            }
-         }
-         i=0; // Reset for next iteration.
-
-         //AT THIS POINT:
-         1. logicsim_sngle_pass() is done. So np->fault[0] = np->logic_val;
-         2. Now we must do fault checking for every fault for every node.
-         
-         for(j=0;j<Nnodes;j++)
-         {
-            np = &Node[j];
-            
-         }
-         
-         
-         */
-          
-          
-         /*
-
-          END OF ITERATION
-         */
-      }
-   }  
 }
 
    
