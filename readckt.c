@@ -2105,6 +2105,10 @@ char *cp;
 
 
 
+
+
+
+
 //pfs:
 pfs(cp)
 char *cp;
@@ -2139,26 +2143,61 @@ char *cp;
    int iter=0; // Iteration number.
    NSTRUC *np;
    
-    f1 = fopen(input_vector_list,"r");
-    fgets(line,MAXLINE,f1);// First line will give PI order.
-    input_vector = strtok(line,",");
-    //printf("strtok done\n\n");
-    i=0;
+   
+   //Set fault map:
+   
+   f = fopen(fault_list,"r");
+   //printf("W: %d\n",W);
+   printf("q: %f\n",q);
+   printf("cycles: %d\n",cycles);
+   i=0; // For storing map list;
+   
+   while(!feof(f))
+   {
+      for(j=1;j<=cycles;j++) // Because map[0] has the fault-free value hence, faults will get stored starting from map[1].
+      {
+         
+         if(!feof(f)) //if q=10 and w=5, cycles=3. In the last iteration, only 2 values will be left by cycles=3 so we don't won't to read garbage in that cycle.
+         {
+               fgets(line,MAXLINE,f);
+               sscanf(line,"%d@%d", &node_number,&logic_number);
+               map[j].node_num = node_number;
+               map[j].fault_type = logic_number;
+               printf("map[%d]: %d %d\n",j,map[j].node_num,map[j].fault_type);
+         }  
+         
+      }
+   }
+   fclose(f); // Close fault list. 
+   //FAULT MAP HAS BEEN INITIALIZED NOW. 
+   printf("MAIN FAULT MAP HAS BEEN INITIALIZED NOW.\n\n");
+   printf("Resetting found bit for all the \n");
 
-    while(input_vector != NULL)
-    {
-        current_input_vector[i].node_num = atoi(input_vector);
-        i+=1;
-        input_vector = strtok(NULL,",");
-    }
+   for(j=1;j<=cycles;j++)
+   {
+      map[j].found=0; //Reset found for all faults before storing.
+   }
 
-    //input vectors start from next line onwards i.e. line-2.
+
+   f1 = fopen(input_vector_list,"r");
+   fgets(line,MAXLINE,f1);// First line will give PI order.
+   input_vector = strtok(line,",");
+   //printf("strtok done\n\n");
+   i=0;
+   while(input_vector != NULL)
+   {
+      current_input_vector[i].node_num = atoi(input_vector);
+      i+=1;
+      input_vector = strtok(NULL,",");
+   }
+
+   //input vectors start from next line onwards i.e. line-2.
 
    while(!feof(f1)) // Perform pfs() for every input vector.
    {
         printf("\n\n\n Running for test-vector-%d\n");
         fgets(line,MAXLINE,f1);// From hereon line stores input vector.
-        //printf("line: %s\n\n",line);
+        printf("line: %s\n\n",line);
         input_vector = strtok(line,",");
         i=0;
         while(input_vector != NULL)
@@ -2185,32 +2224,6 @@ char *cp;
 
        // At this point we have initialized all the PIs.
        logicsim_single_pass();
-
-      //Set fault map:
-      f = fopen(fault_list,"r");
-      //printf("W: %d\n",W);
-      printf("q: %f\n",q);
-      printf("cycles: %d\n",cycles);
-      i=0; // For storing map list;
-      while(!feof(f))
-      {
-        for(j=1;j<=cycles;j++) // Because map[0] has the fault-free value hence, faults will get stored starting from map[1].
-        {
-            
-            if(!feof(f)) //if q=10 and w=5, cycles=3. In the last iteration, only 2 values will be left by cycles=3 so we don't won't to read garbage in that cycle.
-            {
-                fgets(line,MAXLINE,f);
-                sscanf(line,"%d@%d", &node_number,&logic_number);
-                map[j].node_num = node_number;
-                map[j].fault_type = logic_number;
-                printf("map[%d]: %d %d\n",j,map[j].node_num,map[j].fault_type);
-            }  
-            
-        }
-      }
-      fclose(f); // Close fault list. 
-      //FAULT MAP HAS BEEN INITIALIZED NOW. 
-      printf("MAIN FAULT MAP HAS BEEN INITIALIZED NOW.\n\n");
         
 
 
@@ -2498,13 +2511,7 @@ char *cp;
 
       //STORE THE DETECTABLE FAULTS TO THE OUTPUT FILE:
       //using file append will be helpful.
-      printf("Resetting found bit for current input vector\n");
-      for(j=1;j<=cycles;j++)
-      {
-         map[j].found=0; //Reset found for all faults before storing.
-      }
-
-
+      
       f2 = fopen(output_file,"a");
       printf("Writing all detectable faults to the output file:\n");
       for(j=0;j<Npo;j++)
