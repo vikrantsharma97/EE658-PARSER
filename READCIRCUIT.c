@@ -2792,7 +2792,7 @@ char *cp;
             else fprintf(f,"%d",vector[k]);
          }
          fclose(f);
-
+         printf("Reached at dfs\n");
          dfs(dfs_input_list, dfs_output_list);//This input file only has one vector at a time.
          current_detectable_faults = get_lines(dfs_output_list);
          current_fault_coverage = (current_detectable_faults/total_faults)*100;
@@ -2863,7 +2863,7 @@ char *cp;
             else fprintf(f,"%d",vector[k]);
          }
          fclose(f);
-
+         printf("Reached dfs in RTG\n");
          dfs(dfs_input_list, dfs_output_list);//This input file only has one vector at a time.
          current_detectable_faults = get_lines(dfs_output_list);
          current_fault_coverage = (current_detectable_faults/total_faults)*100;
