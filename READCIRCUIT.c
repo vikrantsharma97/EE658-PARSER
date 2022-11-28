@@ -1098,6 +1098,7 @@ int get_lines(char *filename): Returns the number of lines in a file.
  int get_lines(char *filename)
  {
     //printf("Entered get lines\n");
+    printf("current_file in get_lines(): %s\n",filename);
     char input_filename[MAXLINE];
     char line[MAXLINE];
     char *r;
@@ -2800,6 +2801,7 @@ char *cp;
          strcat(dfs_final_input,dfs_output_list);
          printf("dfs_final_input: %s\n",dfs_final_input);
          dfs(dfs_final_input);//This input file only has one vector at a time.
+         //printf("dfs_output_list: %s\n",dfs_output_list);
          current_detectable_faults = get_lines(dfs_output_list);
          printf("lines: %f\n",current_detectable_faults);
          printf("Total faults: %f\n",total_faults);
