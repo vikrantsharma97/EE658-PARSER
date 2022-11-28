@@ -80,6 +80,12 @@ struct fault{
    int fault_type;
 };
 
+struct pfs_node{
+   int node_num;
+   int fault_type;
+   int found;
+};
+
 
 int W = (int)(CHAR_BIT * sizeof(void *));
 
@@ -1091,19 +1097,21 @@ int get_lines(char *filename): Returns the number of lines in a file.
 */
  int get_lines(char *filename)
  {
-    FILE *f;
-    int number_of_lines = 0;
+    //printf("Entered get lines\n");
     char input_filename[MAXLINE];
+    char line[MAXLINE];
+    char *r;
+    int count=0;
+    FILE *f;
     sscanf(filename, "%s", input_filename);
-    f = fopen(input_filename,"r");
-    int ch;
-
-    while (EOF != (ch=getc(f)))
+    //printf("input file name: %s\n",input_filename);
+    f=fopen(input_filename,"r");
+    while(!feof(f))
     {
-        if ('\n' == ch) ++number_of_lines;
+        r=fgets(line,MAXLINE,f); // fgets() returns NULL when it encounters EOF.
+        if(r != NULL) count+=1;
     }
-
-    return number_of_lines;
+    return count;
  }
 
 
@@ -2106,6 +2114,132 @@ char *cp;
 
 
 
+
+
+void reset_logic_val()
+{
+    NSTRUC *np;
+    int i;
+    for(i=0;i<Nnodes;i++)
+    {
+        np = &Node[i];
+        np->logical_value = -1;
+    }
+}
+
+void logicsim_single_pass()
+{
+   //printf("Entered LOGICSIM\n");
+   //reset_logic_val();
+   char line[MAXLINE];
+   int i,j,k,current_level,node_number,logic_val;
+   NSTRUC *np,tmp;
+   int max_level = get_max_level();
+
+   current_level = 1; // We have already assigned logical values to all the nodes in level-0 
+   //                0     1    2   3    4    5    6     7
+   // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
+   while(!all_logics_assigned() && current_level<=max_level)
+   {
+      //printf("\n\nCurrent level: %d\n",current_level);
+      for(i=0;i<Nnodes;i++)
+      {
+         np = &Node[i];
+         if((np->level== current_level) && (np->type!=0)) // We assign values level-by-level. 
+         {
+            if(np->type == 1) // BRANCH: We assign it the value of its parent branch.
+            { 
+               //printf("Entered 1\n");
+               np->logical_value = np->unodes[0]->logical_value; // Branches will always have just 1 upnode.
+               np->fault_list[0] = np->logical_value;
+            }
+
+            if(np->type == 2) // XOR
+            {
+               //printf("Entered 2\n");
+               np->logical_value = 0; // 0^x = x; so we initialize the xor result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value ^ np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+
+            }
+
+            if(np->type == 3) // OR
+            {
+               //printf("Entered 3\n");
+               np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+               //printf("node-%d is an OR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 4) // NOR
+            {
+               //printf("Entered 4\n");
+               np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NOR.
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+               //printf("node-%d is a NOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            } 
+
+            if(np->type == 5) // NOT
+            {
+               //printf("Entered 5\n");
+               //printf("unode:%d    unode val:%d\n",np->unodes[0]->num,np->unodes[0]->logical_value);
+               if(np->unodes[0]->logical_value == -1) np->logical_value = -1;
+               else np->logical_value = 1 - np->unodes[0]->logical_value; // Invert.
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+               //printf("node-%d is a NOT gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 6) // NAND
+            {
+               //printf("Entered 6\n");
+               np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NAND.
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+               //printf("node-%d is a NAND gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 7) //AND
+            {
+               //printf("Entered 7\n");
+               np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+               //printf("node-%d is an AND gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+         }
+      }
+      current_level+=1;
+   }
+
+   // At this point all the nodes have been assigned a logical value and we have traversed
+   // all the levels. Hence, we now write the output logic values to the output files.
+   printf("logicsim_single_pass() completed.\n\n");
+}
 
 
 
