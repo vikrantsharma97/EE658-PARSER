@@ -2619,10 +2619,11 @@ char *cp;
    // In the industry, exhaustive testing is feasible for Npi=20~25 so we chose Npi<=20.
    {
       printf("Entered exhaustive if-loop\n");
-      f = fopen(input_vector_file,"a");
-
+      printf("input vector file: %s\n",input_vector_file);
+      
       for(j=0;j<=num_tests;j++)
       {
+         f = fopen(input_vector_file,"a");
          //Convert j to binary and store into the vector.
          n=j;
          //printf("n: %d\n",n);
@@ -2632,11 +2633,11 @@ char *cp;
             n=n/2;    
          } 
 
-         //printf("\nBinary of %d is=",j);    
+         /*printf("\nBinary of %d is=",j);    
          for(i=0;i<(size-1);i++)    
          {    
          //printf("%d",vector[i]);    
-         }  
+         }*/
 
          //Store the current vector into the input file:
          for(k=0;k<size;k++)
@@ -2764,8 +2765,7 @@ char *cp;
       //Add frequency logic:
       count+1;
    }*/
-   printf("RTG COMPLETE\n");
-   
+   printf("RTG COMPLETE\n");   
 }
 /*-----------------------------------------------------------------------
 input: gate type
