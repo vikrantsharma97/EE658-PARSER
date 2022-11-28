@@ -832,8 +832,18 @@ char *ip;
                np->logical_value = 0; // 0^x = x; so we initialize the xor result to 0.
                for(j=0;j<np->fin;j++)
                {
-                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value ^ np->unodes[j]->logical_value;
-                  else np->logical_value = -1;
+                  if(np->unodes[j]->logical_value == -1)
+                  {
+                     np->logical_value=-1;
+                     break;
+                  }
+                  else
+                  {
+                     if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value ^ np->unodes[j]->logical_value;
+                     else np->logical_value = -1;
+                  }
+                  //if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value ^ np->unodes[j]->logical_value;
+                  //else np->logical_value = -1;
                }
                //printf("node-%d is an XOR gate. value assigned: %d\n\n",np->num,np->logical_value);
             }
@@ -844,8 +854,20 @@ char *ip;
                np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
                for(j=0;j<np->fin;j++)
                {
-                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
-                  else np->logical_value = -1;
+                  if(np->unodes[j]->logical_value != -1)
+                  { 
+                     if(np->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                     else
+                     {
+                        if(np->unodes[j]->logical_value == 0) np->logical_value = -1;
+                        if(np->unodes[j]->logical_value == 1) np->logical_value = 1;  
+                     }
+                  }   
+                  else
+                  { 
+                     if(np->logical_value == 0) np->logical_value = -1;
+                     if(np->logical_value == 1) np->logical_value = 1;
+                  }   
                }
                //printf("node-%d is an OR gate. value assigned: %d\n\n",np->num,np->logical_value);
             }
@@ -858,8 +880,20 @@ char *ip;
                np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
                for(j=0;j<np->fin;j++)
                {
-                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
-                  else np->logical_value = -1;
+                  if(np->unodes[j]->logical_value != -1)
+                  { 
+                     if(np->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                     else
+                     {
+                        if(np->unodes[j]->logical_value == 0) np->logical_value = -1;
+                        if(np->unodes[j]->logical_value == 1) np->logical_value = 1;  
+                     }
+                  }   
+                  else
+                  { 
+                     if(np->logical_value == 0) np->logical_value = -1;
+                     if(np->logical_value == 1) np->logical_value = 1;
+                  }   
                }
                if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NOR.
                //printf("node-%d is a NOR gate. value assigned: %d\n\n",np->num,np->logical_value);
@@ -884,8 +918,20 @@ char *ip;
                np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
                for(j=0;j<np->fin;j++)
                {
-                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
-                  else np->logical_value = -1;
+                  if(np->unodes[j]->logical_value != -1)
+                  { 
+                     if(np->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                     else
+                     {
+                        if(np->unodes[j]->logical_value == 0) np->logical_value = 0;
+                        if(np->unodes[j]->logical_value == 1) np->logical_value = -1;  
+                     }
+                  }   
+                  else
+                  { 
+                     if(np->logical_value == 0) np->logical_value = 0;
+                     if(np->logical_value == 1) np->logical_value = -1;
+                  }   
                }
                if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NAND.
                //printf("node-%d is a NAND gate. value assigned: %d\n\n",np->num,np->logical_value);
@@ -899,8 +945,20 @@ char *ip;
                np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
                for(j=0;j<np->fin;j++)
                {
-                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
-                  else np->logical_value = -1;
+                  if(np->unodes[j]->logical_value != -1)
+                  { 
+                     if(np->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                     else
+                     {
+                        if(np->unodes[j]->logical_value == 0) np->logical_value = 0;
+                        if(np->unodes[j]->logical_value == 1) np->logical_value = -1;  
+                     }
+                  }   
+                  else
+                  { 
+                     if(np->logical_value == 0) np->logical_value = 0;
+                     if(np->logical_value == 1) np->logical_value = -1;
+                  }   
                }
                //printf("node-%d is an AND gate. value assigned: %d\n\n",np->num,np->logical_value);
             }
@@ -1148,7 +1206,7 @@ int removerepeated(NSTRUC *np1){
     int i,j,k;
     for(i=0;i<np1->count_fl;i++){
         for(j=i+1;j<np1->count_fl;){
-            if(np1->num_fl[i]==np1->num_fl[j]){
+            if((np1->num_fl[i]==np1->num_fl[j]) && (np1->type_fl[i]==np1->type_fl[j])){
                 for(k=j;k<np1->count_fl;k++){
                     np1->num_fl[k]=np1->num_fl[k+1];
                     np1->type_fl[k]=np1->type_fl[k+1];
@@ -1231,7 +1289,7 @@ int removerepeated_int(NSTRUC *np1){
     int i,j,k;
     for(i=0;i<np1->count_fl;i++){
         for(j=i+1;j<np1->count_fl;){
-            if(np1->num_fl[i]==np1->num_fl[j]){
+            if((np1->num_fl[i]==np1->num_fl[j]) && (np1->type_fl[i]==np1->type_fl[j])){
                 for(k=j;k<np1->count_fl;k++){
                     np1->num_fl[k]=np1->num_fl[k+1];
                     np1->type_fl[k]=np1->type_fl[k+1];
@@ -1316,7 +1374,7 @@ int removerepeated_aminusb(NSTRUC *np1){
     int i,j,k;
     for(i=0;i<np1->count_fl;i++){
         for(j=i+1;j<np1->count_fl;){
-            if(np1->num_fl[i]==np1->num_fl[j]){
+            if((np1->num_fl[i]==np1->num_fl[j]) && (np1->type_fl[i]==np1->type_fl[j]) ){
                 for(k=j;k<np1->count_fl;k++){
                     np1->num_fl[k]=np1->num_fl[k+1];
                     np1->type_fl[k]=np1->type_fl[k+1];
@@ -2039,9 +2097,10 @@ char *cp;
    //for(j=0;j<Poutput[Npo-1]->count_fl;j++) printf("%d@%d ",Poutput[Npo-1]->num_fl[j],Poutput[Npo-1]->type_fl[j]);
    //printf("\n");
    for(j=0;j<Poutput[Npo-1]->count_fl;j++) fprintf(file_ptr2,"%d@%d\n",Poutput[Npo-1]->num_fl[j],Poutput[Npo-1]->type_fl[j]); 
-   fclose(file_ptr2);
+   //fclose(file_ptr2);
    //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);   
-   }// end of for loop     
+   }// end of for loop 
+   fclose(file_ptr2);    
 }//dfs end
 
 
