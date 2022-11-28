@@ -2713,6 +2713,7 @@ char *cp;
    //Temporary files for 1 iteration of dfs:
    char dfs_output_list[MAXLINE] = "dfs_rtg_out.txt";
    char dfs_input_list[MAXLINE];
+   char dfs_final_input[MAXLINE]; // 
    strcat(dfs_input_list,current_read_file);
    strcat(dfs_input_list,"_rtg_input.txt");// For eg: c17_rtg_input.txt
    //printf("Fault list file: %s\n",fault_list);
@@ -2792,23 +2793,30 @@ char *cp;
             else fprintf(f,"%d",vector[k]);
          }
          fclose(f);
-         printf("Reached at dfs\n");
-         dfs(dfs_input_list, dfs_output_list);//This input file only has one vector at a time.
+
+         memset(dfs_final_input,0,sizeof(dfs_final_input));
+         strcat(dfs_final_input,dfs_input_list);
+         strcat(dfs_final_input," ");
+         strcat(dfs_final_input,dfs_output_list);
+         printf("dfs_final_input: %s\n",dfs_final_input);
+         dfs(dfs_final_input);//This input file only has one vector at a time.
          current_detectable_faults = get_lines(dfs_output_list);
+         printf("lines: %f\n",current_detectable_faults);
+         printf("Total faults: %f\n",total_faults);
          current_fault_coverage = (current_detectable_faults/total_faults)*100;
          printf("current_detectable_faults: %f\n",current_detectable_faults);
          printf("current_fault_coverage: %f\n",current_fault_coverage);
          //NOTE: FAULT COVERAGE SHOULD ONLY HAVE UPTO 2 DECIMAL PLACES.
          count+=1;
-
-         if(count%frequency==0)
+         exit(-1);
+         /*if(count%frequency==0)
          {
             //STORE THE current_fault_coverage into the fault_coverage file.
             f=fopen(output_FC_file,"a");
             printf("Storing fault coverage: %.2f\n",current_fault_coverage);
             fprintf(f,"%.2f\n",current_fault_coverage);
             fclose(f);
-         }
+         }*/
 
       }
       
