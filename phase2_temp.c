@@ -58,8 +58,12 @@ lev()
 #include <string.h>
 #include <limits.h>
 #include <math.h>
-#define MAXLINE 900               /* Input buffer size */
-#define MAXNAME 900               /* File name size */
+#include <time.h>
+#include <stdint.h> //For uint64_t
+
+#define MAXLINE 10000               /* Input buffer size */
+#define MAXNAME 5000               /* File name size */
+
 
 #define Upcase(x) ((isalpha(x) && islower(x))? toupper(x) : (x))
 #define Lowcase(x) ((isalpha(x) && isupper(x))? tolower(x) : (x))
@@ -78,6 +82,7 @@ struct cmdstruc {
 struct pfs_node{
    int node_num;
    int fault_type;
+   int found;
 };
 
 int W = (int)(CHAR_BIT * sizeof(void *));
@@ -141,7 +146,6 @@ char output_file_logicsim[MAXLINE];
 // No. of primary outputs is Npo(declared on line 104).
 
 //pfs():
-struct pfs_node map[(int)(CHAR_BIT * sizeof(void *))];
 
 /*------------------------------------------------------------------------*/
 
@@ -425,9 +429,9 @@ help()
    printf("Performs the logic simulation of the given circuit and generates the output vector\n");
    printf("RFL output_filename - ");
    printf(" Generates a reduced list of faults required for the ATPG of the circuit\n");
-   printf("DFS filename - ");
+   printf("DFS <input_file> <output_file> - ");
    printf("Reports all the detectable (so not just the RFL) faults using the input test patterns\n");
-   printf("PFS filename - ");
+   printf("PFS <input_vector_file>  <input_fault_list>  <output_file> - ");
    printf("Reports which one of the faults can be detected with the input test patterns using the PFS method\n");
    printf("RTG #random_test_patterns  report_frequency   test_pattern_report_filename   FC_report_filename-\n"); //UPDATE THIS.
    printf("QUIT - ");
@@ -1012,14 +1016,15 @@ int get_lines(char *filename): Returns the number of lines in a file.
  {
     FILE *f;
     int number_of_lines = 0;
+    int found_eof=0;
     char input_filename[MAXLINE];
     sscanf(filename, "%s", input_filename);
     f = fopen(input_filename,"r");
     int ch;
 
     while (EOF != (ch=getc(f)))
-    {
-        if ('\n' == ch) ++number_of_lines;
+    { 
+       if ('\n' == ch) ++number_of_lines;
     }
 
     return number_of_lines;
@@ -1074,7 +1079,7 @@ void logicsim_single_pass()
                   else np->logical_value = -1;
                }
                if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
-               //printf("node-%d is an XOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+
             }
 
             if(np->type == 3) // OR
@@ -1155,7 +1160,12 @@ void logicsim_single_pass()
 dfs(cp)
 char *cp;
 {
-  
+   char input_file[MAXLINE];
+   char  output_file[MAXLINE];
+   sscanf(cp, "%s %s",input_file,output_file);
+   printf("\n\nEntered dfs\n");
+   printf("input file: %s\n",input_file);
+   printf("output file: %s\n",output_file);
 }
 
 
@@ -1165,18 +1175,25 @@ pfs(cp)
 char *cp;
 {
    printf("Entered pfs\n");
-   FILE *f,*f1;
+   FILE *f,*f1,*f2;
    char fault_list[MAXLINE];
    char input_vector_list[MAXLINE];
+   char output_file[MAXLINE];
    char line[MAXLINE];
-
-   sscanf(cp, "%s %s",fault_list,input_vector_list);
+   
+   sscanf(cp, "%s %s %s",input_vector_list,fault_list,output_file);
    printf("input_vector_list: %s\n\n",input_vector_list);
    printf("fault_list: %s\n\n",fault_list);
+   printf("output file: %s\n",output_file);
    float q = get_lines(fault_list); // Must be float otherwise q/W-1 itself gets rounded.
    int iterations = ceil(q/(W-1)); // No. of iterations = ceil(q/(W-1)).
    int iteration_count=0,test_count=1;
-   int cycles = (q > W) ? W-1 : q;//No. of faults read in every iteration. 
+   int cycles = (q >= W) ? W-1 : q;//No. of faults read in every iteration. 
+   
+   struct pfs_node map[cycles];
+   int current_level=0;
+   int current_fault_free_val;
+   int max_level = get_max_level();
    printf("q:%f W:%d cycles: %d\n",q,W,cycles);
    int node_number,logic_number;
    struct pfs_node current_input_vector[Npi];// Store PI node_num and its value.
@@ -1216,14 +1233,6 @@ char *cp;
             input_vector = strtok(NULL,",");
         }
 
-        /*printf("Npi: %d\n",Npi);
-        for(i=0;i<Npi;i++)
-        {
-            printf("Node: %d    input: %d\n",current_input_vector[i].node_num,current_input_vector[i].fault_type);
-        }
-        printf("Exiting\n\n");
-        exit(-1);*/
-
         for(i=0;i<Npi;i++)
         {
             //printf("Current input: %d\n",Pinput[i]->num);
@@ -1232,70 +1241,542 @@ char *cp;
                 if(Pinput[i]->num == current_input_vector[j].node_num)
                 {
                    Pinput[i]->logical_value = current_input_vector[j].fault_type;
+                   Pinput[i]->fault_list[0] = current_input_vector[j].fault_type;
                    //printf("assigning input %d to %d\n",Pinput[i]->num,current_input_vector[j].fault_type);  
                 }
             }
             
         }
 
-        /*for(i=0;i<Nnodes;i++)
-        {
-            np = &Node[i];
-            printf("Input: %d   Value: %d\n",np->num,np->logical_value);
-        }*/
-
-
        // At this point we have initialized all the PIs.
        logicsim_single_pass();
-       printf("Exiting PFS\n");
-       exit(-1);
+       /*printf("\n\nFault free values:\n");
+       for(i=0;i<Nnodes;i++)
+       {
+          np = &Node[i];
+          printf("%d %d\n",np->num,np->fault_list[0]);
+       }
+       exit(-1);*/
 
 
       //Set fault map:
       f = fopen(fault_list,"r");
-
+      //printf("W: %d\n",W);
+      printf("q: %f\n",q);
+      printf("cycles: %d\n",cycles);
+      i=0; // For storing map list;
       while(!feof(f))
       {
         for(j=1;j<=cycles;j++) // Because map[0] has the fault-free value hence, faults will get stored starting from map[1].
         {
-            if(!feof(f))
+            
+            if(!feof(f)) //if q=10 and w=5, cycles=3. In the last iteration, only 2 values will be left by cycles=3 so we don't won't to read garbage in that cycle.
             {
                 fgets(line,MAXLINE,f);
                 sscanf(line,"%d@%d", &node_number,&logic_number);
                 map[j].node_num = node_number;
                 map[j].fault_type = logic_number;
+                printf("map[%d]: %d %d\n",j,map[j].node_num,map[j].fault_type);
             }  
+            
         }
-        //FAULT MAP HAS BEEN INITIALIZED NOW.
+        
+        //FAULT MAP HAS BEEN INITIALIZED NOW. 
+        printf("MAIN FAULT MAP HAS BEEN INITIALIZED NOW.\n\n");
+        
 
 
+        //UPDATE FAULT LIST OF ALL THE NODES LEVEL-BY-LEVEL:
+        current_level = 0;
+        while(current_level <= max_level)
+        {
+            printf("\ncurrent_level: %d\n",current_level);
+            for(i=0;i<Nnodes;i++)
+            {
+               np = &Node[i];
+               if(np->level == current_level)
+               {
+                  if(np->type == 0) //PI
+                  {
+                     for(j=1;j<=cycles;j++)
+                     {
+                         np->fault_list[j] = np->logical_value;
+                     }
+          
+                     printf("\n\nFinal fault_list of PI %d:\n",np->num);
+                     for(j=0;j<W;j++)
+                     {
+                        printf("%d ",np->fault_list[j]);
+                     }     
+                  }
+
+
+
+                  if(np->type == 1) //BRANCH
+                  {
+                     //Just copy the fault_list of unodes[0].
+                     for(j=1;j<=cycles;j++)
+                     {
+                        np->fault_list[j] = np->unodes[0]->fault_list[j];
+                     }
+
+                     for(j=1;j<=cycles;j++)
+                     {
+                        if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
+                     }
+
+                     printf("\n\nFinal fault_list of BRANCH Node %d:\n",np->num);
+                     for(j=0;j<W;j++)
+                     {
+                        printf("%d ",np->fault_list[j]);
+                     }
+                     
+
+                  }
+
+                  if(np->type == 2) //XOR
+                  {
+                     //INITIALIZE THE FAULT LIST:
+                     for(k=1;k<=cycles;k++)
+                     {
+                        np->fault_list[k] = 0; //0^x = x; so we initialize the fault_list to 0.
+                     }
+
+                     //XOR the fault_lists of all the unodes
+                     for(j=0;j<np->fin;j++)
+                     {
+                        for(k=1;k<=cycles;k++)
+                        {
+                           np->fault_list[k] = np->fault_list[k] ^ np->unodes[j]->fault_list[k]; 
+                        }
+                     }
+
+                     //UPDATE THE FAULT LIST FOR CURRENT NODE'S FAULTS:
+                     for(j=1;j<=cycles;j++)
+                     {
+                        if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
+                     }
+
+                     printf("\n\nFinal fault_list of XOR Node %d:\n",np->num);
+                     for(j=0;j<W;j++)
+                     {
+                        printf("%d ",np->fault_list[j]);
+                     }
+                  }
+
+
+
+                  if(np->type == 3) //OR
+                  {
+                     //INITIALIZE THE FAULT LIST:
+                     for(k=1;k<=cycles;k++)
+                     {
+                        np->fault_list[k] = 0; //0|x = x; so we initialize the fault_list to 0.
+                     }
+
+
+                     //OR the fault_lists of all the unodes
+                     for(j=0;j<np->fin;j++)
+                     {
+                        for(k=1;k<=cycles;k++)
+                        {
+                           np->fault_list[k] = np->fault_list[k] | np->unodes[j]->fault_list[k]; 
+                        }
+                     }
+
+                     //UPDATE THE FAULT LIST FOR CURRENT NODE'S FAULTS:
+                     for(j=1;j<=cycles;j++)
+                     {
+                        if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
+                     }
+
+                     printf("\n\nFinal fault_list of OR Node %d:\n",np->num);
+                     for(j=0;j<W;j++)
+                     {
+                        printf("%d ",np->fault_list[j]);
+                     }
+                  }
+
+
+                  if(np->type == 4) //NOR
+                  {
+                     //INITIALIZE THE FAULT LIST:
+                     for(k=1;k<=cycles;k++)
+                     {
+                        np->fault_list[k] = 0; //0|x = x; so we initialize the fault_list to 0.
+                     }
+
+
+                     //OR the fault_lists of all the unodes
+                     for(j=0;j<np->fin;j++)
+                     {
+                        for(k=1;k<=cycles;k++)
+                        {
+                           np->fault_list[k] = np->fault_list[k] | np->unodes[j]->fault_list[k]; 
+                        }
+                     }
+
+                     //INVERT THE FINAL FAULT LIST TO GET NOR:
+                     for(k=1;k<=cycles;k++)
+                     {
+                        np->fault_list[k] = 1 - np->fault_list[k];
+                     }
+
+                     //UPDATE THE FAULT LIST FOR CURRENT NODE'S FAULTS:
+                     for(j=1;j<=cycles;j++)
+                     {
+                        if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
+                     }
+
+
+                     printf("\n\nFinal fault_list of NOR Node %d:\n",np->num);
+                     for(j=0;j<W;j++)
+                     {
+                        printf("%d ",np->fault_list[j]);
+                     }
+                  }
+
+
+                  if(np->type == 5) //NOT
+                  {
+                     //INVERT the fault_lists of all the unodes
+                     for(j=1;j<=cycles;j++)
+                     {
+                        np->fault_list[j] = 1 - np->unodes[0]->fault_list[j];
+                        
+                     }
+                     
+                     //UPDATE THE FAULT LIST FOR CURRENT NODE'S FAULTS:
+                     for(j=1;j<=cycles;j++)
+                     {
+                        if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
+                     }
+
+                     printf("\n\nFinal fault_list of NOT Node %d:\n",np->num);
+                     for(j=0;j<W;j++)
+                     {
+                        printf("%d ",np->fault_list[j]);
+                     }
+                     
+                  }
+
+
+
+                  if(np->type == 6) //NAND
+                  {
+                     //INITIALIZE THE FAULT LIST:
+                     printf("\nSetting fault list for node: %d\n",np->num);
+                     for(k=1;k<=cycles;k++)
+                     {
+                        np->fault_list[k] = 1; //1&x = x; so we initialize the fault_list to 1.
+                     }
+                     
+                     //printf("list after initializing:\n");
+                     for(k=1;k<=cycles;k++)
+                     {
+                        //printf("%d ",np->fault_list[k]);
+                     }
+                     //printf("\n");
+
+                     //AND the fault_lists of all the unodes
+                     for(j=0;j<np->fin;j++)
+                     {
+                        for(k=1;k<=cycles;k++)
+                        {
+                           np->fault_list[k] = np->fault_list[k] & np->unodes[j]->fault_list[k]; 
+                        }
+                     }
+
+                     //printf("List after ANDING:\n");
+                     for(k=1;k<=cycles;k++)
+                     {
+                        //printf("%d ",np->fault_list[k]);
+                     }
+                     //printf("\n");
+
+                     //INVERT THE FINAL FAULT LIST TO GET NAND:
+                     for(k=1;k<=cycles;k++)
+                     {
+                        np->fault_list[k] = 1 - np->fault_list[k];
+                     }
+
+                     //printf("Listing after NANDING:\n");
+                     for(k=1;k<=cycles;k++)
+                     {
+                        //printf("%d ",np->fault_list[k]);
+                     }
+
+                     //UPDATE THE FAULT LIST FOR CURRENT NODE'S FAULTS:
+                     for(j=1;j<=cycles;j++)
+                     {
+                        if(np->num == map[j].node_num) 
+                        {
+                           np->fault_list[j] = map[j].fault_type;
+                           //printf("\nnp->num: %d\n",np->num);
+                           //printf("\nUpdating node list for %d\n",j);
+                           //printf("\nmap[%d].node_num: %d\n",j,map[j].node_num);
+                           //printf("map[j].fault_type: %d\n",map[j].fault_type);
+                        }
+                     }
+
+                     printf("\nFinal fault_list of NAND Node %d:\n",np->num);
+                     for(j=0;j<=cycles;j++)
+                     {
+                        printf("%d ",np->fault_list[j]);
+                     }
+                     
+                  }
+
+
+
+
+
+                  if(np->type == 7) //AND
+                  {
+                     //INITIALIZE THE FAULT LIST:
+                     for(k=1;k<=cycles;k++)
+                     {
+                        np->fault_list[k] = 1; //1&x = x; so we initialize the fault_list to 1.
+                     }
+
+                     //AND the fault_lists of all the unodes
+                     for(j=0;j<np->fin;j++)
+                     {
+                        for(k=1;k<=cycles;k++)
+                        {
+                           np->fault_list[k] = np->fault_list[k] & np->unodes[j]->fault_list[k]; 
+                        }
+                     }
+
+                     //UPDATE THE FAULT LIST FOR CURRENT NODE'S FAULTS:
+                     for(j=1;j<=cycles;j++)
+                     {
+                        if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
+                     }
+
+                     printf("\n\nFinal fault_list of AND Node %d:\n",np->num);
+                     for(j=0;j<W;j++)
+                     {
+                        printf("%d ",np->fault_list[j]);
+                     }
+                  }
+
+               }
+            }
+            current_level+=1;
+        }
+
+
+        printf("\n\nFAULT LIST UPDATED FOR ALL THE NODES\n");
+
+        //STORE THE DETECTABLE FAULTS TO THE OUTPUT FILE:
+        //using file append will be helpful.
+
+        for(j=1;j<=cycles;j++)
+        {
+            map[j].found=0; //Reset found for all faults before storing.
+        }
+
+        f2 = fopen(output_file,"a");
+        printf("Writing all detectable faults to the output file:\n");
+        for(j=0;j<Npo;j++)
+        {
+            current_fault_free_val = Poutput[j]->fault_list[0];
+            printf("\n\noutput node: %d\n",Poutput[j]->num);
+            printf("current_fault_free_val: %d\n",Poutput[j]->fault_list[0]);
+            for(k=1;k<cycles;k++)
+            {
+               if(current_fault_free_val ^ Poutput[j]->fault_list[k])
+               {
+                  printf("Writing for output j = %d\n",j);
+                   if(map[k].found==0)
+                   {
+                     map[k].found=1;
+                     printf("k:%d\n",k);
+                     printf("Storing %d@%d\n",map[k].node_num,map[k].fault_type);
+                     //printf("map[%d].node_num: %d\n",k,map[k].node_num);
+                     //printf("map[%d].fault_type: %d\n",k,map[k].fault_type);
+                     //printf("storing: %d@%d\n",map[k].node_num,map[k].fault_type);
+                     fprintf(f2,"%d@%d\n",map[k].node_num,map[k].fault_type);
+                   }
+                  //exit(-1);
+               }
+            }
+        }
+        fclose(f2); //Close output file.
+        //NOTE: FINAL OUTPUT FILE HAS DUPLICATES. REMOVE THOSE DUPLICATES.
+        //printf("One iteration completed\n");
+        //exit(-1);
       } 
-
-
-
-
-      /*for(k=0;k<W;k++)
-      {
-        printf("index:%d Node:%d    Fault%d\n",k,map[k].node_num,map[k].fault_type);
-      }
-      printf("Exiting\n\n");
-      fclose(f);
-      exit(-1);*/
-      
-      
-       
-      
-
+      fclose(f); // Close fault list.
     }
+    fclose(f1); // Close Input vector list.
+    printf("PFS COMPLETED SUCCESSFULLY\n");
 }
 
+
+
+void dfs_helper(char *input,char *output)
+{
+   printf("\n\nENTERED dfs_helper\n");
+   printf("input: %s\n",input);
+   printf("output: %s\n",output);
+   exit(-1);
+
+}
 
 //rtg:
 rtg(cp)
 char *cp;
 {
    printf("Entered the rtg function\n\n");
-   
+   printf("current_read_file: %s\n",current_read_file);
+   int vector[ Npi]; // Input vector length = Npi
+   int size = Npi;
+   struct pfs_node map[2*Nnodes];
+   //2^31 - INT_MAX = 1;
+   printf("size: %d\n",size);
+   int max_patterns = (size<=31) ? pow(2,size): -1;
+   printf("max_patterns: %d\n",max_patterns);
+   int num_tests;
+   int frequency;
+   float current_fault_coverage = 0;
+   float target_fault_coverage=70;
+   char input_vector_file[MAXLINE];
+   char output_FC_file[MAXLINE];
+   char line[MAXLINE];
+   char dfs_fault_list[MAXLINE] = "dfs_rtg_out.txt";
+   char fault_list[MAXLINE];
+   strcat(fault_list,current_read_file);
+   strcat(fault_list,"_rtg_fl.txt");
+   //printf("Fault list file: %s\n",fault_list);
+   FILE *f,*f1;
+   NSTRUC *np;
+   int count=0,i,j,k,n;
+   float total_faults=0;
+   float current_detectable_faults = 0;
+   time_t t;
+   sscanf(cp,"%d %d %s %s",&num_tests,&frequency,input_vector_file,output_FC_file);
+   /*printf("num_tests: %d\n",num_tests);
+   printf("frequency: %d\n",frequency);
+   printf("input_vector_file: %s\n",input_vector_file);
+   printf("output_FC_file: %s\n",output_FC_file);
+   printf("Npi: %d\n",Npi);
+   printf("Nnodes: %d\n",Nnodes);*/
+
+   //Generate fault list:
+   f=fopen(fault_list,"w");
+   for(i=0;i<Nnodes;i++)
+   {
+      np =&Node[i];
+      fprintf(f,"%d@0\n",np->num);
+
+      if(i== Nnodes-1) fprintf(f,"%d@1",np->num);
+      else fprintf(f,"%d@1\n",np->num);
+      total_faults+=2;
+   }
+   //printf("Total faults: %d\n",total_faults);
+   //printf("current_fault_coverage: %f\n",current_fault_coverage); //Should only store upto 2 decimal places.
+   //printf("Target fault coverage: %f\n",target_fault_coverage);
+
+   for(i=0;i<Npi;i++) vector[i]=0; // Initialize current vector to 0.
+
+   if((Npi<=20) && (num_tests<=max_patterns)) // If there are less than 20 PIs we generate patterns exhaustively.
+   // In the industry, exhaustive testing is feasible for Npi=20~25 so we chose Npi<=20.
+   {
+      //printf("Entered loop\n");
+      f = fopen(input_vector_file,"a");
+
+      for(j=0;j<=num_tests;j++)
+      {
+         //Convert j to binary and store into the vector.
+         n=j;
+         //printf("n: %d\n",n);
+         for(i=0;n>0;i++)    
+         {   
+            vector[(size-1)-i]=n%2;
+            n=n/2;    
+         } 
+
+         //printf("\nBinary of %d is=",j);    
+         for(i=0;i<(size-1);i++)    
+         {    
+         //printf("%d",vector[i]);    
+         }  
+
+         //Store the current vector into the input file:
+         for(k=0;k<size;k++)
+         {
+            //[1,1,0,0,1]
+            if(k<=(size-2))fprintf(f,"%d,",vector[k]);
+            else fprintf(f,"%d\n",vector[k]);
+         }
+
+         
+      }
+      printf("EXHAUSTIVE INPUT VECTOR HAS BEEN INITIALIZED");
+      fclose(f);
+   }
+
+   else // Generate random test patterns.
+   {
+      count=0;
+      while(count <= num_tests)
+      {
+         /*Intializes random number generator */
+         //srand((unsigned) time(&t));
+         j = rand()%max_patterns;
+         printf("j: %d\n",j);
+
+         f = fopen(input_vector_file,"a");
+         for(i=0;i<Npi;i++) vector[i]=0; // Initialize current vector to 0.
+         //Convert j to binary and store into the vector.
+         n=j;
+         //printf("n: %d\n",n);
+         for(i=0;n>0;i++)    
+         {   
+            vector[(size-1)-i]=n%2;
+            n=n/2;    
+         } 
+
+         /*printf("\nBinary of %d is=",j);    
+         for(i=0;i<(size-1);i++)    
+         {    
+         printf("%d",vector[i]);    
+         }  
+         printf("\n\n");*/
+
+
+         //Store the current vector into the input file:
+         for(k=0;k<size;k++)
+         {
+            if(k<=(size-2))fprintf(f,"%d,",vector[k]);
+            else fprintf(f,"%d\n",vector[k]);
+         } 
+         fclose(f);
+         count+=1; 
+      }
+   }
+   count=0; // Reset for next logic.
+   printf("RANDOM INPUT VECTOR FILE HAS BEEN INITIALIZED");
+
+
+   // PERFORM DFS AND UPDATE FAULTCOVERAGE:
+
+   while((current_fault_coverage < target_fault_coverage) && (count<num_tests))
+   {
+      dfs_helper(input_vector_file,dfs_fault_list);
+      //This will run all the testvectors at once. If num_tests=100 and frequency=10,
+      //how will we get the fault coverage after every 10 testvectors? dfs will solve
+      //for all the testvectors at once.
+      current_detectable_faults = get_lines(dfs_fault_list);
+      current_fault_coverage = (current_detectable_faults/total_faults)*100;
+      printf("current fault coverage: %f\n",current_fault_coverage);
+      if((count % frequency) == 0) //Update FC file.
+      //Add frequency logic:
+      count+1;
+   }
+   printf("RTG COMPLETE\n");
 }
 
 /*-----------------------------------------------------------------------
