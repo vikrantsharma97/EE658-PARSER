@@ -2558,6 +2558,213 @@ rtg(cp)
 char *cp;
 {
    printf("Entered the rtg function\n\n");
+   printf("current_read_file: %s\n",current_read_file);
+   int vector[ Npi]; // Input vector length = Npi
+   int size = Npi;
+   struct pfs_node map[2*Nnodes];
+   //2^31 - INT_MAX = 1;
+   printf("size: %d\n",size);
+   int max_patterns = (size<=31) ? pow(2,size): -1;
+   printf("max_patterns: %d\n",max_patterns);
+   int num_tests;
+   int frequency;
+   float current_fault_coverage = 0;
+   float target_fault_coverage=70;
+   char input_vector_file[MAXLINE];
+   char output_FC_file[MAXLINE];
+   char line[MAXLINE];
+   char exhaustive_fault_list[MAXLINE];
+   strcat(exhaustive_fault_list,current_read_file);
+   strcat(exhaustive_fault_list,"_exhaustive_fault_list.txt");
+   //Temporary files for 1 iteration of dfs:
+   char dfs_output_list[MAXLINE] = "dfs_rtg_out.txt";
+   char dfs_input_list[MAXLINE];
+   strcat(dfs_input_list,current_read_file);
+   strcat(dfs_input_list,"_rtg_input.txt");// For eg: c17_rtg_input.txt
+   //printf("Fault list file: %s\n",fault_list);
+
+   FILE *f,*f1,*f2;
+   NSTRUC *np;
+   int count=0,i,j,k,n;
+   float total_faults=0;
+   float current_detectable_faults = 0;
+   sscanf(cp,"%d %d %s %s",&num_tests,&frequency,input_vector_file,output_FC_file);
+   printf("num_tests: %d\n",num_tests);
+   printf("frequency: %d\n",frequency);
+   printf("input_vector_file: %s\n",input_vector_file);
+   printf("output_FC_file: %s\n",output_FC_file);
+   printf("Npi: %d\n",Npi);
+   printf("Nnodes: %d\n\n\n",Nnodes);
+
+   //Generate fault list:
+   f=fopen(exhaustive_fault_list,"w");
+   for(i=0;i<Nnodes;i++)
+   {
+      np = &Node[i];
+      fprintf(f,"%d@0\n",np->num);
+
+      if(i== Nnodes-1) fprintf(f,"%d@1",np->num);
+      else fprintf(f,"%d@1\n",np->num);
+      total_faults+=2;
+   }
+   fclose(f);
+   //printf("Total faults: %d\n",total_faults);
+   //printf("current_fault_coverage: %f\n",current_fault_coverage); //Should only store upto 2 decimal places.
+   //printf("Target fault coverage: %f\n",target_fault_coverage);
+
+
+   for(i=0;i<Npi;i++) vector[i]=0; // Initialize current vector to 0.
+
+   if((Npi<=20) && (num_tests<=max_patterns)) // If there are less than 20 PIs we generate patterns exhaustively.
+   // In the industry, exhaustive testing is feasible for Npi=20~25 so we chose Npi<=20.
+   {
+      printf("Entered exhaustive if-loop\n");
+      f = fopen(input_vector_file,"a");
+
+      for(j=0;j<=num_tests;j++)
+      {
+         //Convert j to binary and store into the vector.
+         n=j;
+         //printf("n: %d\n",n);
+         for(i=0;n>0;i++)    
+         {   
+            vector[(size-1)-i]=n%2;
+            n=n/2;    
+         } 
+
+         //printf("\nBinary of %d is=",j);    
+         for(i=0;i<(size-1);i++)    
+         {    
+         //printf("%d",vector[i]);    
+         }  
+
+         //Store the current vector into the input file:
+         for(k=0;k<size;k++)
+         {
+            //[1,1,0,0,1]
+            if(k<=(size-2))fprintf(f,"%d,",vector[k]);
+            else fprintf(f,"%d\n",vector[k]);
+         }
+         fclose(f); // ONE VECTOR HAS BEEN STORED(APPENDED) INTO THE MAIN INPUT VECTOR FILE.
+
+
+         //Write one vector into the temporary input file:
+         f=fopen(dfs_input_list,"w");
+         for(k=0;k<size;k++)
+         {
+            if(k<=(size-2))fprintf(f,"%d,",vector[k]);
+            else fprintf(f,"%d",vector[k]);
+         }
+         fclose(f);
+
+         dfs(dfs_input_list, dfs_output_list);//This input file only has one vector at a time.
+         current_detectable_faults = get_lines(dfs_output_list);
+         current_fault_coverage = (current_detectable_faults/total_faults)*100;
+         printf("current_detectable_faults: %f\n",current_detectable_faults);
+         printf("current_fault_coverage: %f\n",current_fault_coverage);
+         //NOTE: FAULT COVERAGE SHOULD ONLY HAVE UPTO 2 DECIMAL PLACES.
+         count+=1;
+
+         if(count%frequency==0)
+         {
+            //STORE THE current_fault_coverage into the fault_coverage file.
+            f=fopen(output_FC_file,"a");
+            printf("Storing fault coverage: %.2f\n",current_fault_coverage);
+            fprintf(f,"%.2f\n",current_fault_coverage);
+            fclose(f);
+         }
+
+      }
+      
+   }
+
+   else // Generate random test patterns.
+   {
+      printf("Entered non-exhaustive else-loop\n");
+      count=0;
+      while(count <= num_tests)
+      {
+         /*Intializes random number generator */
+         //srand((unsigned) time(&t));
+         j = rand()%max_patterns;
+         printf("j: %d\n",j);
+
+         f = fopen(input_vector_file,"a");
+         for(i=0;i<Npi;i++) vector[i]=0; // Initialize current vector to 0.
+
+
+         //Convert j to binary and store into the vector.
+         n=j;
+         //printf("n: %d\n",n);
+         for(i=0;n>0;i++)    
+         {   
+            vector[(size-1)-i]=n%2;
+            n=n/2;    
+         } 
+
+         /*printf("\nBinary of %d is=",j);    
+         for(i=0;i<(size-1);i++)    
+         {    
+         printf("%d",vector[i]);    
+         }  
+         printf("\n\n");*/
+
+
+         //Store the current vector into the input file:
+         for(k=0;k<size;k++)
+         {
+            if(k<=(size-2))fprintf(f,"%d,",vector[k]);
+            else fprintf(f,"%d\n",vector[k]);
+         } 
+         fclose(f);
+         // ONE VECTOR HAS BEEN STORED(APPENDED) INTO THE MAIN INPUT VECTOR FILE.
+         
+         //Write one vector into the temporary input file:
+         f=fopen(dfs_input_list,"w");
+         for(k=0;k<size;k++)
+         {
+            if(k<=(size-2))fprintf(f,"%d,",vector[k]);
+            else fprintf(f,"%d",vector[k]);
+         }
+         fclose(f);
+
+         dfs(dfs_input_list, dfs_output_list);//This input file only has one vector at a time.
+         current_detectable_faults = get_lines(dfs_output_list);
+         current_fault_coverage = (current_detectable_faults/total_faults)*100;
+         printf("current_detectable_faults: %f\n",current_detectable_faults);
+         printf("current_fault_coverage: %f\n",current_fault_coverage);
+         //NOTE: FAULT COVERAGE SHOULD ONLY HAVE UPTO 2 DECIMAL PLACES.
+         count+=1;
+         if(count%frequency==0)
+         {
+            //STORE THE current_fault_coverage into the fault_coverage file.
+            f=fopen(output_FC_file,"a");
+            printf("Storing fault coverage: %.2f\n",current_fault_coverage);
+            fprintf(f,"%.2f\n",current_fault_coverage);
+            fclose(f);
+         }
+      }
+   }
+   count=0; // Reset for next logic.
+   printf("RANDOM INPUT VECTOR FILE HAS BEEN INITIALIZED");
+
+
+   // PERFORM DFS AND UPDATE FAULTCOVERAGE:
+
+   /*while((current_fault_coverage < target_fault_coverage) && (count<num_tests))
+   {
+      dfs_helper(input_vector_file,dfs_fault_list);
+      //This will run all the testvectors at once. If num_tests=100 and frequency=10,
+      //how will we get the fault coverage after every 10 testvectors? dfs will solve
+      //for all the testvectors at once.
+      current_detectable_faults = get_lines(dfs_fault_list);
+      current_fault_coverage = (current_detectable_faults/total_faults)*100;
+      printf("current fault coverage: %f\n",current_fault_coverage);
+      if((count % frequency) == 0) //Update FC file.
+      //Add frequency logic:
+      count+1;
+   }*/
+   printf("RTG COMPLETE\n");
    
 }
 /*-----------------------------------------------------------------------
