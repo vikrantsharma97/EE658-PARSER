@@ -3491,13 +3491,19 @@ char *cp;
    char output_FC_file[MAXLINE];
    char line[MAXLINE];
    char exhaustive_fault_list[MAXLINE];
+   char current_file[MAXLINE];
+   char temp[MAXLINE];
    strcat(exhaustive_fault_list,current_read_file);
    strcat(exhaustive_fault_list,"_exhaustive_fault_list.txt");
    //Temporary files for 1 iteration of dfs:
-   char dfs_output_list[MAXLINE] = "dfs_rtg_out.txt";
+   strcat(temp,current_read_file);
+   char dfs_output_list[MAXLINE];
+   strcat(temp,"_rtg_out.txt");
+   strcat(dfs_output_list,temp);// c499_rtg_out.txt
+
    char dfs_input_list[MAXLINE];
    char dfs_final_input[MAXLINE]; // 
-   strcat(dfs_input_list,current_read_file);
+   strcat(dfs_input_list,current_file);
    strcat(dfs_input_list,"_rtg_input.txt");// For eg: c17_rtg_input.txt
    //printf("Fault list file: %s\n",fault_list);
 
@@ -3621,15 +3627,24 @@ char *cp;
    else // Generate random test patterns.
    {
       printf("Entered non-exhaustive else-loop\n");
+      // Store the PIs on the first line.
+      f = fopen(input_vector_file,"w");
+      for(k=0;k<size;k++)
+      {
+         if(k<=(size-2))fprintf(f,"%d,",Pinput[k]->num);
+         else fprintf(f,"%d\n",Pinput[k]->num);
+      }
+      fclose(f);
+
+
       count=0;
       while(count <= num_tests)
       {
          /*Intializes random number generator */
          //srand((unsigned) time(&t));
-         j = rand()%max_patterns;
+         j = rand()%79; // 79 was chosen randomly.
          printf("j: %d\n",j);
 
-         f = fopen(input_vector_file,"a");
          for(i=0;i<Npi;i++) vector[i]=0; // Initialize current vector to 0.
 
 
@@ -3651,14 +3666,16 @@ char *cp;
 
 
          //Store the current vector into the input file:
+         f = fopen(input_vector_file,"a");
          for(k=0;k<size;k++)
          {
             if(k<=(size-2))fprintf(f,"%d,",vector[k]);
             else fprintf(f,"%d\n",vector[k]);
          } 
-         fclose(f);
-         // ONE VECTOR HAS BEEN STORED(APPENDED) INTO THE MAIN INPUT VECTOR FILE.
+         fclose(f); // ONE VECTOR HAS BEEN STORED(APPENDED) INTO THE MAIN INPUT VECTOR FILE.
          
+
+
          //Write one vector into the temporary input file:
          f=fopen(dfs_input_list,"w");
          for(k=0;k<size;k++)
@@ -3672,14 +3689,21 @@ char *cp;
             else fprintf(f,"%d",vector[k]);
          }
          fclose(f);
-         printf("Reached dfs in RTG\n");
-         dfs(dfs_input_list, dfs_output_list);//This input file only has one vector at a time.
+
+         //Send the current vector to dfs_helper:
+         memset(dfs_final_input,0,sizeof(dfs_final_input));
+         strcat(dfs_final_input,dfs_input_list);
+         strcat(dfs_final_input," ");
+         strcat(dfs_final_input,dfs_output_list);
+         rtg_dfs_helper(dfs_final_input);//This input file only has one vector at a time.
          current_detectable_faults = get_lines(dfs_output_list);
+         printf("lines: %f\n",current_detectable_faults);
          current_fault_coverage = (current_detectable_faults/total_faults)*100;
          printf("current_detectable_faults: %f\n",current_detectable_faults);
          printf("current_fault_coverage: %f\n",current_fault_coverage);
          //NOTE: FAULT COVERAGE SHOULD ONLY HAVE UPTO 2 DECIMAL PLACES.
          count+=1;
+
          if(count%frequency==0)
          {
             //STORE THE current_fault_coverage into the fault_coverage file.
@@ -3709,6 +3733,7 @@ char *cp;
       //Add frequency logic:
       count+1;
    }*/
+   remove(dfs_output_list);
    printf("RTG COMPLETE\n"); 
 }
 /*-----------------------------------------------------------------------
