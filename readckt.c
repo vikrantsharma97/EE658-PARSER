@@ -3562,7 +3562,7 @@ char *cp;
          else fprintf(f,"%d\n",Pinput[k]->num);
       }
       fclose(f);   
-      for(j=0;j<=num_tests;j++)
+      for(j=0;j<num_tests;j++)
       {
          f = fopen(input_vector_file,"a");
          //Convert j to binary and store into the vector.
@@ -3649,7 +3649,7 @@ char *cp;
 
 
       count=0;
-      while(count <= num_tests)
+      while(count < num_tests)
       {
          /*Intializes random number generator */
          //srand((unsigned) time(&t));
