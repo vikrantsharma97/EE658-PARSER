@@ -80,6 +80,20 @@ struct fault{
    int fault_type;
 };
 
+struct pfs_node{
+   int node_num;
+   int fault_type;
+   int found;
+};
+
+
+struct result_dfs
+{
+   int res_num[5000];
+   int res_type[5000];
+   int res_count;
+};
+struct result_dfs res_dfs;
 
 int W = (int)(CHAR_BIT * sizeof(void *));
 
@@ -436,13 +450,13 @@ help()
    printf("print this help information\n");
    //printf("LEV filename - ");
    //printf(" Performs levelization of the circuit that was read and outputs the circuit data into the given file\n");
-   printf("LOGICSIM input_filename output_filename - ");
+   printf("LOGICSIM <input_filename> <output_filename> - ");
    printf("Performs the logic simulation of the given circuit and generates the output vector\n");
-   printf("RFL output_filename - ");
+   printf("RFL <output_filename> - ");
    printf(" Generates a reduced list of faults required for the ATPG of the circuit\n");
-   printf("DFS filename - ");
+   printf("DFS <input_file> <output_file> - ");
    printf("Reports all the detectable (so not just the RFL) faults using the input test patterns\n");
-   printf("PFS filename - ");
+   printf("PFS <input_vector_file>  <input_fault_list>  <output_file> - ");
    printf("Reports which one of the faults can be detected with the input test patterns using the PFS method\n");
    printf("RTG #random_test_patterns  report_frequency   test_pattern_report_filename   FC_report_filename-\n"); //UPDATE THIS.
    printf("QUIT - ");
@@ -1040,6 +1054,42 @@ allocate()
    }
 }
 
+struct result_dfs sort_res_dfs( struct result_dfs res_dfs){
+    int i,j,temp_num,temp_type;
+    for(i=0;i<res_dfs.res_count;i++){
+        for(j=i+1;j<res_dfs.res_count;j++){
+            if(res_dfs.res_num[i]>res_dfs.res_num[j]){
+                temp_num=res_dfs.res_num[i];
+                temp_type=res_dfs.res_type[i];
+                res_dfs.res_num[i]=res_dfs.res_num[j];
+                res_dfs.res_type[i]=res_dfs.res_type[j];
+                res_dfs.res_num[j]=temp_num;
+                res_dfs.res_type[j]=temp_type;
+            }
+        }
+    } 
+   return res_dfs; 
+} 
+
+struct result_dfs removerepeated_res_dfs(struct result_dfs res_dfs){
+    int i,j,k;
+    for(i=0;i<res_dfs.res_count;i++){
+        for(j=i+1;j<res_dfs.res_count;){
+            if((res_dfs.res_num[i]==res_dfs.res_num[j]) && (res_dfs.res_type[i]==res_dfs.res_type[j]) ){
+                for(k=j;k<res_dfs.res_count;k++){
+                    res_dfs.res_num[k]=res_dfs.res_num[k+1];
+                    res_dfs.res_type[k]=res_dfs.res_type[k+1];
+                }
+                res_dfs.res_count--;
+            }
+            else{
+                j++;
+            }
+        }
+    }
+    return(res_dfs);
+}
+
 //rfl:
 rfl(cp)
 char *cp;
@@ -1053,34 +1103,41 @@ char *cp;
    NSTRUC *np;
    sscanf(cp, "%s", output_filename);
    f_ptr = fopen(output_filename,"w");
+   //int res_num[5000];
+   //int res_type[5000];
+   //int res_count;
+   res_dfs.res_count=0;
 
-   
-   for(i=0;i<Npi;i++)
-   {
-      sprintf(temp,"%d",Pinput[i]->num);
-      strcat(temp,"@0");
-      fprintf(f_ptr,"%s\n",temp);
-      strcpy(temp,"");
-      sprintf(temp,"%d",Pinput[i]->num);
-      strcat(temp,"@1");
-      fprintf(f_ptr,"%s\n",temp);
-   }
-
-   strcpy(temp,""); // Re-initialize temp.
    for(i=0;i<Nnodes;i++)
    {
       np = &Node[i];
-      if(np->type == 1)
+      if(np->type == 0) //PI
       {
-         sprintf(temp,"%d",np->num);
-         strcat(temp,"@0");
-         fprintf(f_ptr,"%s\n",temp);
-         strcpy(temp,"");
-         sprintf(temp,"%d",np->num);
-         strcat(temp,"@1");
-         fprintf(f_ptr,"%s\n",temp);
+         res_dfs.res_num[res_dfs.res_count] = np->num;
+         res_dfs.res_type[res_dfs.res_count] = 0;
+         res_dfs.res_count +=1;
+
+         res_dfs.res_num[res_dfs.res_count] = np->num;
+         res_dfs.res_type[res_dfs.res_count] = 1;
+         res_dfs.res_count +=1;
       }
-      
+
+      if(np->type == 1) //BRANCH
+      {
+         res_dfs.res_num[res_dfs.res_count] = np->num;
+         res_dfs.res_type[res_dfs.res_count] = 0;
+         res_dfs.res_count +=1;
+
+         res_dfs.res_num[res_dfs.res_count] = np->num;
+         res_dfs.res_type[res_dfs.res_count] = 1;
+         res_dfs.res_count +=1;
+      }
+
+   }
+   res_dfs = sort_res_dfs(res_dfs);
+   for(i=0;i<res_dfs.res_count;i++)
+   {
+     fprintf(f_ptr,"%d@%d\n",res_dfs.res_num[i],res_dfs.res_type[i]); 
    }
    //printf("All RFL faults updated\n");
    fclose(f_ptr);
@@ -1091,19 +1148,22 @@ int get_lines(char *filename): Returns the number of lines in a file.
 */
  int get_lines(char *filename)
  {
-    FILE *f;
-    int number_of_lines = 0;
+    //printf("Entered get lines\n");
+    //printf("current_file in get_lines(): %s\n",filename);
     char input_filename[MAXLINE];
+    char line[MAXLINE];
+    char *r;
+    int count=0;
+    FILE *f;
     sscanf(filename, "%s", input_filename);
-    f = fopen(input_filename,"r");
-    int ch;
-
-    while (EOF != (ch=getc(f)))
+    //printf("input file name: %s\n",input_filename);
+    f=fopen(input_filename,"r");
+    while(!feof(f))
     {
-        if ('\n' == ch) ++number_of_lines;
+        r=fgets(line,MAXLINE,f); // fgets() returns NULL when it encounters EOF.
+        if(r != NULL) count+=1;
     }
-
-    return number_of_lines;
+    return count;
  }
 
 
@@ -1131,6 +1191,7 @@ int logicsim_single_pass(int pinputs[Npi])
 }
 
 */
+
 /*struct union_op(struct dfs_faultlist a, int dfs_indx1, struct dfs_faultlist b, int dfs_indx2)
 {
     int i = 0, j = 0, k=0;
@@ -1404,11 +1465,14 @@ void sort_aminusb(NSTRUC *np1){
     }
 } 
 
+
+//struct result_dfs res_dfs;
 //dfs:
 dfs(cp)
 char *cp;
 {
    sscanf(cp, "%s %s", input_file_dfs,output_file_dfs);
+   //printf("inside dfs:\n%s\n %s",input_file_dfs,output_file_dfs);
    char line[10000];
    int i,j,k,current_level,node_number,logic_val;
    NSTRUC *np,tmp;
@@ -1439,6 +1503,8 @@ char *cp;
    int non_cont, cont;
    int non_cont_indx[100],cont_indx[100];
    int count;
+   //struct result_dfs res_dfs;
+   res_dfs.res_count =0;
    //************************************************
    while(!feof(file_ptr))
    {
@@ -2096,11 +2162,27 @@ char *cp;
    //printf("final dfs list\n");
    //for(j=0;j<Poutput[Npo-1]->count_fl;j++) printf("%d@%d ",Poutput[Npo-1]->num_fl[j],Poutput[Npo-1]->type_fl[j]);
    //printf("\n");
-   for(j=0;j<Poutput[Npo-1]->count_fl;j++) fprintf(file_ptr2,"%d@%d\n",Poutput[Npo-1]->num_fl[j],Poutput[Npo-1]->type_fl[j]); 
+   for(j=0;j<Poutput[Npo-1]->count_fl;j++)
+   {
+      res_dfs.res_num[res_dfs.res_count]=Poutput[Npo-1]->num_fl[j];
+      res_dfs.res_type[res_dfs.res_count]=Poutput[Npo-1]->type_fl[j];
+      res_dfs.res_count++;
+   }
+    //fprintf(file_ptr2,"%d@%d\n",Poutput[Npo-1]->num_fl[j],Poutput[Npo-1]->type_fl[j]); 
    //fclose(file_ptr2);
    //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);   
    }// end of for loop 
-   fclose(file_ptr2);    
+   //printf("final count inc duplicates=%d\n",res_dfs.res_count);
+   //for(j=0;j<res_dfs.res_count;j++) printf("%d@%d ",res_dfs.res_num[j],res_dfs.res_type[j]);
+   //printf("\n\n\n\n"); 
+   res_dfs=sort_res_dfs(res_dfs);
+   //for(j=0;j<res_dfs.res_count;j++) printf("%d@%d ",res_dfs.res_num[j],res_dfs.res_type[j]); 
+   res_dfs=removerepeated_res_dfs(res_dfs);
+   //printf("\n\n\n\n"); 
+   //for(j=0;j<res_dfs.res_count;j++) printf("%d@%d ",res_dfs.res_num[j],res_dfs.res_type[j]); 
+   for(j=0;j<res_dfs.res_count;j++) fprintf(file_ptr2,"%d@%d\n",res_dfs.res_num[j],res_dfs.res_type[j]); 
+   fclose(file_ptr2); 
+
 }//dfs end
 
 
@@ -2108,12 +2190,138 @@ char *cp;
 
 
 
+void reset_logic_val()
+{
+    NSTRUC *np;
+    int i;
+    for(i=0;i<Nnodes;i++)
+    {
+        np = &Node[i];
+        np->logical_value = -1;
+    }
+}
+
+void logicsim_single_pass()
+{
+   //printf("Entered LOGICSIM\n");
+   //reset_logic_val();
+   char line[MAXLINE];
+   int i,j,k,current_level,node_number,logic_val;
+   NSTRUC *np,tmp;
+   int max_level = get_max_level();
+
+   current_level = 1; // We have already assigned logical values to all the nodes in level-0 
+   //                0     1    2   3    4    5    6     7
+   // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
+   while(!all_logics_assigned() && current_level<=max_level)
+   {
+      //printf("\n\nCurrent level: %d\n",current_level);
+      for(i=0;i<Nnodes;i++)
+      {
+         np = &Node[i];
+         if((np->level== current_level) && (np->type!=0)) // We assign values level-by-level. 
+         {
+            if(np->type == 1) // BRANCH: We assign it the value of its parent branch.
+            { 
+               //printf("Entered 1\n");
+               np->logical_value = np->unodes[0]->logical_value; // Branches will always have just 1 upnode.
+               np->fault_list[0] = np->logical_value;
+            }
+
+            if(np->type == 2) // XOR
+            {
+               //printf("Entered 2\n");
+               np->logical_value = 0; // 0^x = x; so we initialize the xor result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value ^ np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+
+            }
+
+            if(np->type == 3) // OR
+            {
+               //printf("Entered 3\n");
+               np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+               //printf("node-%d is an OR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 4) // NOR
+            {
+               //printf("Entered 4\n");
+               np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NOR.
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+               //printf("node-%d is a NOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            } 
+
+            if(np->type == 5) // NOT
+            {
+               //printf("Entered 5\n");
+               //printf("unode:%d    unode val:%d\n",np->unodes[0]->num,np->unodes[0]->logical_value);
+               if(np->unodes[0]->logical_value == -1) np->logical_value = -1;
+               else np->logical_value = 1 - np->unodes[0]->logical_value; // Invert.
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+               //printf("node-%d is a NOT gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 6) // NAND
+            {
+               //printf("Entered 6\n");
+               np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NAND.
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+               //printf("node-%d is a NAND gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 7) //AND
+            {
+               //printf("Entered 7\n");
+               np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->fault_list[0] = np->logical_value;
+               //printf("node-%d is an AND gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+         }
+      }
+      current_level+=1;
+   }
+
+   // At this point all the nodes have been assigned a logical value and we have traversed
+   // all the levels. Hence, we now write the output logic values to the output files.
+   //printf("logicsim_single_pass() completed.\n\n");
+}
+
+
 
 //pfs:
 pfs(cp)
 char *cp;
 {
-   printf("Entered pfs\n");
+   //printf("Entered pfs\n");
    FILE *f,*f1,*f2;
    char fault_list[MAXLINE];
    char input_vector_list[MAXLINE];
@@ -2121,9 +2329,9 @@ char *cp;
    char line[MAXLINE];
    
    sscanf(cp, "%s %s %s",input_vector_list,fault_list,output_file);
-   printf("input_vector_list: %s\n\n",input_vector_list);
-   printf("fault_list: %s\n\n",fault_list);
-   printf("output file: %s\n",output_file);
+   //printf("input_vector_list: %s\n\n",input_vector_list);
+   //printf("fault_list: %s\n\n",fault_list);
+   //printf("output file: %s\n",output_file);
    float q = get_lines(fault_list); // Must be float otherwise q/W-1 itself gets rounded.
    int iterations = ceil(q/(W-1)); // No. of iterations = ceil(q/(W-1)).
    int iteration_count=0,test_count=1;
@@ -2133,7 +2341,7 @@ char *cp;
    int current_level=0;
    int current_fault_free_val;
    int max_level = get_max_level();
-   printf("q:%f W:%d cycles: %d\n",q,W,cycles);
+   //printf("q:%f W:%d cycles: %d\n",q,W,cycles);
    int node_number,logic_number;
    struct pfs_node current_input_vector[Npi];// Store PI node_num and its value.
 
@@ -2142,14 +2350,15 @@ char *cp;
    int  logic_val;
    int iter=0; // Iteration number.
    NSTRUC *np;
-   
+   f2 = fopen(output_file,"w");
+   fclose(f2);
    
    //Set fault map:
    
    f = fopen(fault_list,"r");
    //printf("W: %d\n",W);
-   printf("q: %f\n",q);
-   printf("cycles: %d\n",cycles);
+   //printf("q: %f\n",q);
+   //printf("cycles: %d\n",cycles);
    i=0; // For storing map list;
    
    while(!feof(f))
@@ -2163,15 +2372,15 @@ char *cp;
                sscanf(line,"%d@%d", &node_number,&logic_number);
                map[j].node_num = node_number;
                map[j].fault_type = logic_number;
-               printf("map[%d]: %d %d\n",j,map[j].node_num,map[j].fault_type);
+               //printf("map[%d]: %d %d\n",j,map[j].node_num,map[j].fault_type);
          }  
          
       }
    }
    fclose(f); // Close fault list. 
    //FAULT MAP HAS BEEN INITIALIZED NOW. 
-   printf("MAIN FAULT MAP HAS BEEN INITIALIZED NOW.\n\n");
-   printf("Resetting found bit for all the \n");
+   //printf("MAIN FAULT MAP HAS BEEN INITIALIZED NOW.\n\n");
+   //printf("Resetting found bit for all the \n");
 
    for(j=1;j<=cycles;j++)
    {
@@ -2195,9 +2404,9 @@ char *cp;
 
    while(!feof(f1)) // Perform pfs() for every input vector.
    {
-        printf("\n\n\n Running for test-vector-%d\n");
+        //printf("\n\n\n Running for test-vector-%d\n");
         fgets(line,MAXLINE,f1);// From hereon line stores input vector.
-        printf("line: %s\n\n",line);
+        //printf("line: %s\n\n",line);
         input_vector = strtok(line,",");
         i=0;
         while(input_vector != NULL)
@@ -2231,7 +2440,7 @@ char *cp;
       current_level = 0;
       while(current_level <= max_level)
       {
-         printf("\ncurrent_level: %d\n",current_level);
+         //printf("\ncurrent_level: %d\n",current_level);
          for(i=0;i<Nnodes;i++)
          {
             np = &Node[i];
@@ -2244,11 +2453,11 @@ char *cp;
                         np->fault_list[j] = np->logical_value;
                   }
          
-                  printf("\n\nFinal fault_list of PI %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of PI %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
-                     printf("%d ",np->fault_list[j]);
-                  }     
+                     //printf("%d ",np->fault_list[j]);
+                  } */   
                }
 
 
@@ -2266,11 +2475,11 @@ char *cp;
                      if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
                   }
 
-                  printf("\n\nFinal fault_list of BRANCH Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of BRANCH Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                   
 
                }
@@ -2298,11 +2507,11 @@ char *cp;
                      if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
                   }
 
-                  printf("\n\nFinal fault_list of XOR Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of XOR Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                }
 
 
@@ -2331,11 +2540,11 @@ char *cp;
                      if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
                   }
 
-                  printf("\n\nFinal fault_list of OR Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of OR Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                }
 
 
@@ -2370,11 +2579,11 @@ char *cp;
                   }
 
 
-                  printf("\n\nFinal fault_list of NOR Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of NOR Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                }
 
 
@@ -2393,11 +2602,11 @@ char *cp;
                      if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
                   }
 
-                  printf("\n\nFinal fault_list of NOT Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of NOT Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                   
                }
 
@@ -2406,7 +2615,7 @@ char *cp;
                if(np->type == 6) //NAND
                {
                   //INITIALIZE THE FAULT LIST:
-                  printf("\nSetting fault list for node: %d\n",np->num);
+                  //printf("\nSetting fault list for node: %d\n",np->num);
                   for(k=1;k<=cycles;k++)
                   {
                      np->fault_list[k] = 1; //1&x = x; so we initialize the fault_list to 1.
@@ -2460,11 +2669,11 @@ char *cp;
                      }
                   }
 
-                  printf("\nFinal fault_list of NAND Node %d:\n",np->num);
+                  /*printf("\nFinal fault_list of NAND Node %d:\n",np->num);
                   for(j=0;j<=cycles;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                   
                }
 
@@ -2495,11 +2704,11 @@ char *cp;
                      if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
                   }
 
-                  printf("\n\nFinal fault_list of AND Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of AND Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                }
 
             }
@@ -2507,28 +2716,28 @@ char *cp;
          current_level+=1;
       }
 
-      printf("\n\nFAULT LIST UPDATED FOR ALL THE NODES\n");
+      //printf("\n\nFAULT LIST UPDATED FOR ALL THE NODES\n");
 
       //STORE THE DETECTABLE FAULTS TO THE OUTPUT FILE:
       //using file append will be helpful.
       
       f2 = fopen(output_file,"a");
-      printf("Writing all detectable faults to the output file:\n");
+      //printf("Writing all detectable faults to the output file:\n");
       for(j=0;j<Npo;j++)
       {
          current_fault_free_val = Poutput[j]->fault_list[0];
-         printf("\n\noutput node: %d\n",Poutput[j]->num);
-         printf("current_fault_free_val: %d\n",Poutput[j]->fault_list[0]);
-         for(k=1;k<cycles;k++)
+         //printf("\n\noutput node: %d\n",Poutput[j]->num);
+         //printf("current_fault_free_val: %d\n",Poutput[j]->fault_list[0]);
+         for(k=1;k<=cycles;k++)
          {
             if(current_fault_free_val ^ Poutput[j]->fault_list[k])
             {
-               printf("Writing for output j = %d\n",j);
+               //printf("Writing for output j = %d\n",j);
                   if(map[k].found==0)
                   {
                   map[k].found=1;
-                  printf("k:%d\n",k);
-                  printf("Storing %d@%d\n",map[k].node_num,map[k].fault_type);
+                  //printf("k:%d\n",k);
+                  //printf("Storing %d@%d\n",map[k].node_num,map[k].fault_type);
                   //printf("map[%d].node_num: %d\n",k,map[k].node_num);
                   //printf("map[%d].fault_type: %d\n",k,map[k].fault_type);
                   //printf("storing: %d@%d\n",map[k].node_num,map[k].fault_type);
@@ -2545,10 +2754,727 @@ char *cp;
    } 
       //fclose(f); // Close fault list.
     fclose(f1); // Close Input vector list.
-    printf("PFS COMPLETED SUCCESSFULLY\n");
+    //printf("PFS COMPLETED SUCCESSFULLY\n");
 }
 
+void rtg_dfs_helper(cp)
+char *cp;
+{
+   sscanf(cp, "%s %s", input_file_dfs,output_file_dfs);
+   //printf("inside dfs:\n%s\n %s",input_file_dfs,output_file_dfs);
+   char line[10000];
+   int i,j,k,current_level,node_number,logic_val;
+   NSTRUC *np,tmp;
+   int max_level = get_max_level();
    
+   FILE *file_ptr;
+   file_ptr = fopen(input_file_dfs,"r");
+   FILE *file_ptr2;
+   file_ptr2 = fopen(output_file_dfs,"w");
+   char *pt;
+   const char *comp_x = "x";
+   const char *comp_X = "X";
+   int first_line =0;
+   int node_no[Npi];
+   char logicvalue[10000][Npi];
+   for(i=0; i<1000; i++) memset(logicvalue[i],0,strlen(logicvalue[i]));
+   int a=0, b=0; //a is # input patterns, b used internally which is basically Npi
+   int x,y,c;
+   //**********************************************
+   //************DFS input*************************
+   //struct dfs_faultlist dfs_fl[Nnodes];
+   //int dfs_indx=0;
+   NSTRUC *temp_xor_union;
+   NSTRUC *temp_xor_int;
+   temp_xor_union = (NSTRUC *) malloc(sizeof(NSTRUC));
+   temp_xor_int = (NSTRUC *) malloc(sizeof(NSTRUC));
+   // Assigning logical value to the Primary inputs:
+   int non_cont, cont;
+   int non_cont_indx[100],cont_indx[100];
+   int count;
+   //struct result_dfs res_dfs;
+   //res_dfs.res_count =0;
+   //************************************************
+   while(!feof(file_ptr))
+   {
+      memset(line,0,strlen(line));
+      fgets(line,10000,file_ptr);
+      //printf("%d\n", strlen(line));
+      //printf("%s",line);
+      if(line[strlen(line)-1]=='\n') line[strlen(line)-1]='\0';
+      if(strlen(line)==0) break;
+      //printf("%s",line);
+      if(first_line==0){
+         i=0;
+         pt = strtok (line,",");
+         while (pt != NULL) {
+            node_no[i] = atoi(pt);
+            //printf("%d", node_no[i]);
+            pt = strtok (NULL, ",");
+            i++;
+         }
+         first_line++;
+      }
+      else{
+         pt = strtok (line,",");
+         while (pt != NULL) {
+            //printf("%s",pt);
+            if((strcmp(pt, comp_x)==0)||(strcmp(pt, comp_X)==0)){ 
+            logicvalue[a][b] = -1;   
+            //printf("%d", logicvalue[a][b]);
+            }
+            else{
+                logicvalue[a][b] = atoi(pt);
+            }    
+            //printf("%d", logicvalue[a][b]);
+            pt = strtok (NULL, ",");
+            //printf("%s",pt);
+            b++;
+         }
+         b=0;
+         //printf("\n");
+         a++;
+      } 
+      //sscanf(line,"%d,%d",&node_number,&logic_val);
+      // Can we reduce time complexity by using Pinput[] and Npi?
+       
+   }
+   fclose(file_ptr);
+   //int x=0;
+   for(x=0;x<(a);x++)
+   {
+      temp_xor_union->count_fl=0;
+      temp_xor_int->count_fl=0;
+      for(i=0;i<Nnodes;i++)
+      {
+         np=&Node[i];
+         np->count_fl=0;
+      }
+       for(y=0;y<Npi;y++) 
+       {
+         //printf("current node: %d\n",Pinput[i]->num);
+          if(Pinput[y]->num == node_no[y])
+          { Pinput[y]->logical_value = logicvalue[x][y];
+            //printf("node-%d assigned value: %d\n",Pinput[i]->num,Pinput[i]->logical_value);
+            //x++;
+          }
+       }      
+   //printf("x=%d",x);
+   /*int c,d;
+      for( c=0;c<a-1;c++){
+         for( d=0;d<Npi;d++) printf("%d",logicvalue[c][d]);
+         printf("\n");
+      }*/
+
+   //----------------PIs have been assigned their logical value-------------------------
+
+   //printf("Logic value assigned to all PIs\n");
+   //printf("PI logic values: \n");
+   //for(i=0;i<Npi;i++)
+   //{
+      
+      //printf("node:%d   val:%d\n",Pinput[i]->num,Pinput[i]->logical_value);
+   //}
+   
+
+   current_level = 1; // We have already assigned logical values to all the nodes in level-0 
+   //                0     1    2   3    4    5    6     7
+   // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
+   //while(!all_logics_assigned() && current_level<=max_level)
+   while(current_level<=max_level)
+   {
+      //printf("\n\nCurrent level: %d\n",current_level);
+      for(i=0;i<Nnodes;i++)
+      {
+         np = &Node[i];
+         if((np->level== current_level) && (np->type!=0)) // We assign values level-by-level. 
+         {
+            if(np->type == 1) // BRANCH: We assign it the value of its parent branch.
+            { 
+               //printf("Entered 1\n");
+               np->logical_value = np->unodes[0]->logical_value; // Branches will always have just 1 upnode.
+               //printf("node-%d is a Branch. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+            
+
+
+            if(np->type == 2) // XOR
+            {
+               //printf("Entered 2\n");
+               np->logical_value = 0; // 0^x = x; so we initialize the xor result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value ^ np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               //printf("node-%d is an XOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 3) // OR
+            {
+               //printf("Entered 3\n");
+               np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               //printf("node-%d is an OR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+
+
+            if(np->type == 4) // NOR
+            {
+               //printf("Entered 4\n");
+               np->logical_value = 0; // 0|x = x; so we initialize the OR result to 0.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value | np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NOR.
+               //printf("node-%d is a NOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            } 
+
+
+
+            if(np->type == 5) // NOT
+            {
+               //printf("Entered 5\n");
+               //printf("unode:%d    unode val:%d\n",np->unodes[0]->num,np->unodes[0]->logical_value);
+               if(np->unodes[0]->logical_value == -1) np->logical_value = -1;
+               else np->logical_value = 1 - np->unodes[0]->logical_value; // Invert.
+               //printf("node-%d is a NOT gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+
+
+            if(np->type == 6) // NAND
+            {
+               //printf("Entered 6\n");
+               np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               if(np->logical_value != -1) np->logical_value = 1-np->logical_value; // Invert once for NAND.
+               //printf("node-%d is a NAND gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+
+
+            if(np->type == 7) //AND
+            {
+               //printf("Entered 7\n");
+               np->logical_value = 1; // 1&x = x; so we initialize the NAND result to 1.
+               for(j=0;j<np->fin;j++)
+               {
+                  if(np->unodes[j]->logical_value != -1) np->logical_value = np->logical_value & np->unodes[j]->logical_value;
+                  else np->logical_value = -1;
+               }
+               //printf("node-%d is an AND gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+         }
+
+         else
+         {
+            //printf("not entered for:: node:%d  level:%d\n",np->num,np->level);
+         }
+      }
+      current_level+=1;
+   }
+   // At this point all the nodes have been assigned a logical value and we have traversed
+   // all the levels. Hence, we now write the output logic values to the output files.
+   //******************************
+   //DFS start:
+   //******************************
+   for(i=0;i<Npi;i++)
+   {
+      Pinput[i]->num_fl[Pinput[i]->count_fl]=Pinput[i]->num;
+      Pinput[i]->type_fl[Pinput[i]->count_fl]=1-(Pinput[i]->logical_value);
+      Pinput[i]->count_fl=Pinput[i]->count_fl+1;
+      //union_op(Pinput[i],Pinput[i]);
+      //interjection_op(Pinput[i],Pinput[i]);
+      //AminusB(Pinput[i],Pinput[i]);
+   }
+   current_level = 1; // We have already assigned logical values to all the nodes in level-0 
+   //                0     1    2   3    4    5    6     7
+   // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
+   //while(!all_logics_assigned() && current_level<=max_level)
+   while(current_level<=max_level)
+   {
+      //printf("\n\nCurrent level: %d\n",current_level);
+      for(i=0;i<Nnodes;i++)
+      {
+         np = &Node[i];
+         
+         
+         if((np->level== current_level) && (np->type!=0)) // We assign values level-by-level. 
+         {
+            np->num_fl[np->count_fl]=np->num;
+            np->type_fl[np->count_fl]=1-(np->logical_value);
+            np->count_fl=np->count_fl+1;
+            //printf("%d@%d ",np->num_fl,np->type_fl);
+         
+            if(np->type == 1) // BRANCH: We assign it the value of its parent branch.
+            { 
+               //printf("\nEntered branch for node=%d\n",np->num);
+               union_op(np, np->unodes[0]);
+               //printf("count_fl=%d np->num_fl[0]=%d np->type_fl[0]=%d\n",np->count_fl, np->num_fl[0], np->type_fl[0]);
+               //printf("count_fl=%d np->num_fl[1]=%d np->type_fl[1]=%d\n\n",np->count_fl, np->num_fl[1], np->type_fl[1]); 
+               //count=np->count_fl;
+               //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+               //np->logical_value = np->unodes[0]->logical_value; // Branches will always have just 1 upnode.
+               //printf("node-%d is a Branch. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+            
+
+
+            if(np->type == 2) // XOR
+            {
+               temp_xor_union->num=np->unodes[0]->num;
+               temp_xor_int->num=np->unodes[0]->num;
+               temp_xor_union->count_fl=np->unodes[0]->count_fl;
+               temp_xor_int->count_fl=np->unodes[0]->count_fl;
+               for(j=0;j<np->unodes[0]->count_fl;j++)
+               {
+                  temp_xor_union->num_fl[j]=np->unodes[0]->num_fl[j];
+                  temp_xor_int->num_fl[j]=np->unodes[0]->num_fl[j];
+                  temp_xor_union->type_fl[j]=np->unodes[0]->type_fl[j];
+                  temp_xor_int->type_fl[j]=np->unodes[0]->type_fl[j];
+               }
+               /*printf("current node=%d\n",np->num);
+               printf("unode list=%d\n",np->unodes[0]->num);
+               for(j=0;j<np->unodes[0]->count_fl;j++)
+                  printf("%d@%d ",np->unodes[0]->num_fl[j], np->unodes[0]->type_fl[j]);
+
+               printf("\n\ntemp_xor_union");
+               for(j=0;j<temp_xor_union->count_fl;j++)
+                  printf("%d@%d ",temp_xor_union->num_fl[j], temp_xor_union->type_fl[j]);
+               
+               printf("\n\ntemp_xor_int");
+               for(j=0;j<temp_xor_int->count_fl;j++)
+                  printf("%d@%d ",temp_xor_int->num_fl[j], temp_xor_int->type_fl[j]);*/
+
+               //printf("\n\n");   
+               //exit(-1);
+               //la U lb - la n lb
+               //printf("Entered 2\n");
+               /*printf("unode list=%d\n",np->unodes[0]->num);
+               for(j=0;j<np->unodes[0]->count_fl;j++)
+                  printf("%d@%d ",np->unodes[0]->num_fl[j], np->unodes[0]->type_fl[j]);
+               printf("\n");   
+               printf("unode list=%d\n",np->unodes[1]->num);
+               for(j=0;j<np->unodes[1]->count_fl;j++)
+                  printf("%d@%d ",np->unodes[1]->num_fl[j], np->unodes[1]->type_fl[j]);
+
+               printf("\n");*/
+               for(j=1;j<np->fin;j++)
+               {
+                  union_op(temp_xor_union,np->unodes[j]);
+                  interjection_op(temp_xor_int, np->unodes[j]);
+               }
+               /*printf("count_fl of temp_xor_union=%d\n",temp_xor_union->count_fl);
+               printf("union_op:\n");
+               for(j=0;j<temp_xor_union->count_fl;j++)
+               { 
+                  printf("%d@%d ",temp_xor_union->num_fl[j], temp_xor_union->type_fl[j]);
+               }
+
+               printf("\n\ninterjection:\n");
+               for(j=0;j<temp_xor_int->count_fl;j++) 
+                  printf("%d@%d ",temp_xor_int->num_fl[j], temp_xor_int->type_fl[j]);*/   
+               AminusB(temp_xor_union,temp_xor_int);
+               union_op(np,temp_xor_union);
+               
+               /*printf("AminusB:\n");
+               for(j=0;j<temp_xor_union->count_fl;j++) 
+                  printf("%d@%d ",temp_xor_union->num_fl[j], temp_xor_union->type_fl[j]);
+               
+               printf("\n\nfinal xor fl\n");
+               for(j=0;j<np->count_fl;j++) 
+                  printf("%d@%d ",np->num_fl[j], np->type_fl[j]);   
+
+               printf("existing xor\n");
+               exit(-1);*/
+               //printf("node-%d is an XOR gate. value assigned: %d\n\n",np->num,np->logical_value);
+            }
+
+            if(np->type == 3) // OR
+            {
+               //printf("current node in dfs=%d\n",np->num);
+               //printf("current nand gate=%d\n",np->num);
+               non_cont=0;
+               cont=0;
+               for(j=0;j<np->fin;j++)
+               {
+                  //printf("inside np->fin=%d\n",np->fin);
+                  if(np->unodes[j]->logical_value==0)
+                  {  
+                     //printf("1.unodes[%d]=%d, %d\n",j,np->unodes[j]->num,np->unodes[j]->logical_value);
+                     non_cont_indx[non_cont]=j;
+                     non_cont++;
+                     //printf("non controlling count for %d=%d\n",np->num,non_cont);
+                  }
+                  if(np->unodes[j]->logical_value==1){ 
+                     //printf("2.unodes[%d]=%d\n",j,np->unodes[j]->num);
+                     cont_indx[cont]=j;
+                     cont++;
+                  }   
+               }
+               //exit(-1);
+               if(non_cont==np->fin)
+               {
+                  //printf("inside ");
+                  for(j=0;j<(np->fin-1);j++)
+                  {
+                     union_op(np->unodes[j+1],np->unodes[j]);
+                  }
+                  union_op(np,np->unodes[np->fin-1]);
+               }
+               else if(cont>=1)
+               {
+                  //for(j=0;j<cont-1;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+                  if(cont==1)
+                  {
+                     //printf("cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<cont-1;j++)
+                     {
+                        interjection_op(np->unodes[cont_indx[j+1]],np->unodes[cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(non_cont==1)
+                  {
+                     //printf("non_cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<non_cont-1;j++)
+                     {
+                        union_op(np->unodes[non_cont_indx[j+1]],np->unodes[non_cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(cont>0 && non_cont>0)
+                  { 
+                     //printf("AminusB visted for node=%d\n",np->num);
+                     AminusB(np->unodes[cont_indx[cont-1]],np->unodes[non_cont_indx[non_cont-1]]);
+                     //printf("AMinusB is done\n");
+                     //exit(-1);
+                  }
+
+
+                  //printf("union visted for node=%d\n",np->num);
+                  union_op(np,np->unodes[cont_indx[cont-1]]); 
+                  //printf("union visted for node=%d\n",np->num);
+                  //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]); 
+                  //printf("\n");
+                  //printf("inside non_cont else\n");
+                  //exit(-1);
+               }
+               //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+            }
+
+
+
+            if(np->type == 4) // NOR
+            {
+               //printf("current node in dfs=%d\n",np->num);
+               //printf("current nand gate=%d\n",np->num);
+               non_cont=0;
+               cont=0;
+               for(j=0;j<np->fin;j++)
+               {
+                  //printf("inside np->fin=%d\n",np->fin);
+                  if(np->unodes[j]->logical_value==0)
+                  {  
+                     //printf("1.unodes[%d]=%d, %d\n",j,np->unodes[j]->num,np->unodes[j]->logical_value);
+                     non_cont_indx[non_cont]=j;
+                     non_cont++;
+                     //printf("non controlling count for %d=%d\n",np->num,non_cont);
+                  }
+                  if(np->unodes[j]->logical_value==1){ 
+                     //printf("2.unodes[%d]=%d\n",j,np->unodes[j]->num);
+                     cont_indx[cont]=j;
+                     cont++;
+                  }   
+               }
+               //exit(-1);
+               if(non_cont==np->fin)
+               {
+                  //printf("inside ");
+                  for(j=0;j<(np->fin-1);j++)
+                  {
+                     union_op(np->unodes[j+1],np->unodes[j]);
+                  }
+                  union_op(np,np->unodes[np->fin-1]);
+               }
+               else if(cont>=1)
+               {
+                  //for(j=0;j<cont-1;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+                  if(cont==1)
+                  {
+                     //printf("cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<cont-1;j++)
+                     {
+                        interjection_op(np->unodes[cont_indx[j+1]],np->unodes[cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(non_cont==1)
+                  {
+                     //printf("non_cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<non_cont-1;j++)
+                     {
+                        union_op(np->unodes[non_cont_indx[j+1]],np->unodes[non_cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(cont>0 && non_cont>0)
+                  { 
+                     //printf("AminusB visted for node=%d\n",np->num);
+                     AminusB(np->unodes[cont_indx[cont-1]],np->unodes[non_cont_indx[non_cont-1]]);
+                     //printf("AMinusB is done\n");
+                     //exit(-1);
+                  }
+
+
+                  //printf("union visted for node=%d\n",np->num);
+                  union_op(np,np->unodes[cont_indx[cont-1]]); 
+                  //printf("union visted for node=%d\n",np->num);
+                  //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]); 
+                  //printf("\n");
+                  //printf("inside non_cont else\n");
+                  //exit(-1);
+               }
+               //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+            } 
+
+
+
+            if(np->type == 5) // NOT
+            {
+               union_op(np,np->unodes[0]);
+            }
+
+            if(np->type == 6) // NAND
+            {
+               //printf("current node in dfs=%d\n",np->num);
+               //printf("current nand gate=%d\n",np->num);
+               non_cont=0;
+               cont=0;
+               for(j=0;j<np->fin;j++)
+               {
+                  //printf("inside np->fin=%d\n",np->fin);
+                  if(np->unodes[j]->logical_value==1)
+                  {  
+                     //printf("1.unodes[%d]=%d, %d\n",j,np->unodes[j]->num,np->unodes[j]->logical_value);
+                     non_cont_indx[non_cont]=j;
+                     non_cont++;
+                     //printf("non controlling count for %d=%d\n",np->num,non_cont);
+                  }
+                  if(np->unodes[j]->logical_value==0){ 
+                     //printf("2.unodes[%d]=%d\n",j,np->unodes[j]->num);
+                     cont_indx[cont]=j;
+                     cont++;
+                  }   
+               }
+               //exit(-1);
+               if(non_cont==np->fin)
+               {
+                  //printf("inside ");
+                  for(j=0;j<(np->fin-1);j++)
+                  {
+                     union_op(np->unodes[j+1],np->unodes[j]);
+                  }
+                  union_op(np,np->unodes[np->fin-1]);
+               }
+               else if(cont>=1)
+               {
+                  //for(j=0;j<cont-1;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+                  if(cont==1)
+                  {
+                     //printf("cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<cont-1;j++)
+                     {
+                        interjection_op(np->unodes[cont_indx[j+1]],np->unodes[cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(non_cont==1)
+                  {
+                     //printf("non_cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<non_cont-1;j++)
+                     {
+                        union_op(np->unodes[non_cont_indx[j+1]],np->unodes[non_cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(cont>0 && non_cont>0)
+                  { 
+                     //printf("AminusB visted for node=%d\n",np->num);
+                     AminusB(np->unodes[cont_indx[cont-1]],np->unodes[non_cont_indx[non_cont-1]]);
+                     //printf("AMinusB is done\n");
+                     //exit(-1);
+                  }
+
+
+                  //printf("union visted for node=%d\n",np->num);
+                  union_op(np,np->unodes[cont_indx[cont-1]]); 
+                  //printf("union visted for node=%d\n",np->num);
+                  //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]); 
+                  //printf("\n");
+                  //printf("inside non_cont else\n");
+                  //exit(-1);
+               }
+               //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+            }
+
+
+            if(np->type == 7) //AND
+            {
+               //printf("current node in dfs=%d\n",np->num);
+               //printf("current nand gate=%d\n",np->num);
+               non_cont=0;
+               cont=0;
+               for(j=0;j<np->fin;j++)
+               {
+                  //printf("inside np->fin=%d\n",np->fin);
+                  if(np->unodes[j]->logical_value==1)
+                  {  
+                     //printf("1.unodes[%d]=%d, %d\n",j,np->unodes[j]->num,np->unodes[j]->logical_value);
+                     non_cont_indx[non_cont]=j;
+                     non_cont++;
+                     //printf("non controlling count for %d=%d\n",np->num,non_cont);
+                  }
+                  if(np->unodes[j]->logical_value==0){ 
+                     //printf("2.unodes[%d]=%d\n",j,np->unodes[j]->num);
+                     cont_indx[cont]=j;
+                     cont++;
+                  }   
+               }
+               //exit(-1);
+               if(non_cont==np->fin)
+               {
+                  //printf("inside ");
+                  for(j=0;j<(np->fin-1);j++)
+                  {
+                     union_op(np->unodes[j+1],np->unodes[j]);
+                  }
+                  union_op(np,np->unodes[np->fin-1]);
+               }
+               else if(cont>=1)
+               {
+                  //for(j=0;j<cont-1;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+                  if(cont==1)
+                  {
+                     //printf("cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<cont-1;j++)
+                     {
+                        interjection_op(np->unodes[cont_indx[j+1]],np->unodes[cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(non_cont==1)
+                  {
+                     //printf("non_cont visted for node=%d\n",np->num);
+                     //continue;
+                  }
+                  else {
+                     for(j=0;j<non_cont-1;j++)
+                     {
+                        union_op(np->unodes[non_cont_indx[j+1]],np->unodes[non_cont_indx[j]]);
+                     }
+                  }
+
+
+                  if(cont>0 && non_cont>0)
+                  { 
+                     //printf("AminusB visted for node=%d\n",np->num);
+                     AminusB(np->unodes[cont_indx[cont-1]],np->unodes[non_cont_indx[non_cont-1]]);
+                     //printf("AMinusB is done\n");
+                     //exit(-1);
+                  }
+
+
+                  //printf("union visted for node=%d\n",np->num);
+                  union_op(np,np->unodes[cont_indx[cont-1]]); 
+                  //printf("union visted for node=%d\n",np->num);
+                  //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]); 
+                  //printf("\n");
+                  //printf("inside non_cont else\n");
+                  //exit(-1);
+               }
+               //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+            }
+         }
+         else
+         {
+            //printf("not entered for:: node:%d  level:%d\n",np->num,np->level);
+         }
+         //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);
+      }
+      current_level+=1;
+   } 
+   for(j=0;j<Npo-1;j++)
+   {
+      union_op(Poutput[j+1],Poutput[j]);
+   } 
+   //printf("final dfs list\n");
+   //for(j=0;j<Poutput[Npo-1]->count_fl;j++) printf("%d@%d ",Poutput[Npo-1]->num_fl[j],Poutput[Npo-1]->type_fl[j]);
+   //printf("\n");
+   for(j=0;j<Poutput[Npo-1]->count_fl;j++)
+   {
+      res_dfs.res_num[res_dfs.res_count]=Poutput[Npo-1]->num_fl[j];
+      res_dfs.res_type[res_dfs.res_count]=Poutput[Npo-1]->type_fl[j];
+      res_dfs.res_count++;
+   }
+    //fprintf(file_ptr2,"%d@%d\n",Poutput[Npo-1]->num_fl[j],Poutput[Npo-1]->type_fl[j]); 
+   //fclose(file_ptr2);
+   //for(j=0;j<np->count_fl;j++) printf("%d@%d ",np->num_fl[j],np->type_fl[j]);   
+   }// end of for loop 
+   //printf("final count inc duplicates=%d\n",res_dfs.res_count);
+   //for(j=0;j<res_dfs.res_count;j++) printf("%d@%d ",res_dfs.res_num[j],res_dfs.res_type[j]);
+   //printf("\n\n\n\n"); 
+   res_dfs=sort_res_dfs(res_dfs);
+   //for(j=0;j<res_dfs.res_count;j++) printf("%d@%d ",res_dfs.res_num[j],res_dfs.res_type[j]); 
+   res_dfs=removerepeated_res_dfs(res_dfs);
+   //printf("********count=%d***********\n\n",res_dfs.res_count);
+   //printf("\n\n\n\n"); 
+   //for(j=0;j<res_dfs.res_count;j++) printf("%d@%d ",res_dfs.res_num[j],res_dfs.res_type[j]); 
+   //printf("\n\n\n");
+   for(j=0;j<res_dfs.res_count;j++) fprintf(file_ptr2,"%d@%d\n",res_dfs.res_num[j],res_dfs.res_type[j]); 
+   fclose(file_ptr2); 
+
+}   
 
 
 
@@ -2557,15 +3483,17 @@ char *cp;
 rtg(cp)
 char *cp;
 {
-   printf("Entered the rtg function\n\n");
-   printf("current_read_file: %s\n",current_read_file);
+   //printf("Entered the rtg function\n\n");
+   //printf("current_read_file: %s\n",current_read_file);
+   char primary_inputs[MAXLINE];
    int vector[ Npi]; // Input vector length = Npi
    int size = Npi;
    struct pfs_node map[2*Nnodes];
+   res_dfs.res_count = 0;
    //2^31 - INT_MAX = 1;
-   printf("size: %d\n",size);
+   //printf("size: %d\n",size);
    int max_patterns = (size<=31) ? pow(2,size): -1;
-   printf("max_patterns: %d\n",max_patterns);
+   //printf("max_patterns: %d\n",max_patterns);
    int num_tests;
    int frequency;
    float current_fault_coverage = 0;
@@ -2574,12 +3502,19 @@ char *cp;
    char output_FC_file[MAXLINE];
    char line[MAXLINE];
    char exhaustive_fault_list[MAXLINE];
+   char current_file[MAXLINE];
+   char temp[MAXLINE];
    strcat(exhaustive_fault_list,current_read_file);
    strcat(exhaustive_fault_list,"_exhaustive_fault_list.txt");
    //Temporary files for 1 iteration of dfs:
-   char dfs_output_list[MAXLINE] = "dfs_rtg_out.txt";
+   strcat(temp,current_read_file);
+   char dfs_output_list[MAXLINE];
+   strcat(temp,"_rtg_out.txt");
+   strcat(dfs_output_list,temp);// c499_rtg_out.txt
+
    char dfs_input_list[MAXLINE];
-   strcat(dfs_input_list,current_read_file);
+   char dfs_final_input[MAXLINE]; // 
+   strcat(dfs_input_list,current_file);
    strcat(dfs_input_list,"_rtg_input.txt");// For eg: c17_rtg_input.txt
    //printf("Fault list file: %s\n",fault_list);
 
@@ -2589,12 +3524,12 @@ char *cp;
    float total_faults=0;
    float current_detectable_faults = 0;
    sscanf(cp,"%d %d %s %s",&num_tests,&frequency,input_vector_file,output_FC_file);
-   printf("num_tests: %d\n",num_tests);
+   /*printf("num_tests: %d\n",num_tests);
    printf("frequency: %d\n",frequency);
    printf("input_vector_file: %s\n",input_vector_file);
    printf("output_FC_file: %s\n",output_FC_file);
    printf("Npi: %d\n",Npi);
-   printf("Nnodes: %d\n\n\n",Nnodes);
+   printf("Nnodes: %d\n\n\n",Nnodes);*/
 
    //Generate fault list:
    f=fopen(exhaustive_fault_list,"w");
@@ -2618,10 +3553,15 @@ char *cp;
    if((Npi<=20) && (num_tests<=max_patterns)) // If there are less than 20 PIs we generate patterns exhaustively.
    // In the industry, exhaustive testing is feasible for Npi=20~25 so we chose Npi<=20.
    {
-      printf("Entered exhaustive if-loop\n");
-      printf("input vector file: %s\n",input_vector_file);
-
-
+      //printf("Entered exhaustive if-loop\n");
+      //printf("input vector file: %s\n",input_vector_file);
+      f = fopen(input_vector_file,"w");
+      for(k=0;k<size;k++)
+      {
+         if(k<=(size-2))fprintf(f,"%d,",Pinput[k]->num);
+         else fprintf(f,"%d\n",Pinput[k]->num);
+      }
+      fclose(f);   
       for(j=0;j<=num_tests;j++)
       {
          f = fopen(input_vector_file,"a");
@@ -2654,24 +3594,39 @@ char *cp;
          f=fopen(dfs_input_list,"w");
          for(k=0;k<size;k++)
          {
+            if(k<=(size-2))fprintf(f,"%d,",Pinput[k]->num);
+            else fprintf(f,"%d\n",Pinput[k]->num);
+         }
+         for(k=0;k<size;k++)
+         {
             if(k<=(size-2))fprintf(f,"%d,",vector[k]);
             else fprintf(f,"%d",vector[k]);
          }
          fclose(f);
 
-         dfs(dfs_input_list, dfs_output_list);//This input file only has one vector at a time.
+         memset(dfs_final_input,0,sizeof(dfs_final_input));
+         strcat(dfs_final_input,dfs_input_list);
+         strcat(dfs_final_input," ");
+         strcat(dfs_final_input,dfs_output_list);
+         //printf("dfs_final_input: %s\n",dfs_final_input);
+         rtg_dfs_helper(dfs_final_input);//This input file only has one vector at a time.
+         //printf("dfs_output_list: %s\n",dfs_output_list);
+         //dfs("c17t");
+         //exit(-1);
          current_detectable_faults = get_lines(dfs_output_list);
+         //printf("lines: %f\n",current_detectable_faults);
+         //printf("Total faults: %f\n",total_faults);
          current_fault_coverage = (current_detectable_faults/total_faults)*100;
-         printf("current_detectable_faults: %f\n",current_detectable_faults);
-         printf("current_fault_coverage: %f\n",current_fault_coverage);
+         //printf("current_detectable_faults: %f\n",current_detectable_faults);
+         //printf("current_fault_coverage: %f\n",current_fault_coverage);
          //NOTE: FAULT COVERAGE SHOULD ONLY HAVE UPTO 2 DECIMAL PLACES.
          count+=1;
-
+         //exit(-1);
          if(count%frequency==0)
          {
             //STORE THE current_fault_coverage into the fault_coverage file.
             f=fopen(output_FC_file,"a");
-            printf("Storing fault coverage: %.2f\n",current_fault_coverage);
+            //printf("Storing fault coverage: %.2f\n",current_fault_coverage);
             fprintf(f,"%.2f\n",current_fault_coverage);
             fclose(f);
          }
@@ -2682,16 +3637,25 @@ char *cp;
 
    else // Generate random test patterns.
    {
-      printf("Entered non-exhaustive else-loop\n");
+      //printf("Entered non-exhaustive else-loop\n");
+      // Store the PIs on the first line.
+      f = fopen(input_vector_file,"w");
+      for(k=0;k<size;k++)
+      {
+         if(k<=(size-2))fprintf(f,"%d,",Pinput[k]->num);
+         else fprintf(f,"%d\n",Pinput[k]->num);
+      }
+      fclose(f);
+
+
       count=0;
       while(count <= num_tests)
       {
          /*Intializes random number generator */
          //srand((unsigned) time(&t));
-         j = rand()%max_patterns;
-         printf("j: %d\n",j);
+         j = rand()%79; // 79 was chosen randomly.
+         //printf("j: %d\n",j);
 
-         f = fopen(input_vector_file,"a");
          for(i=0;i<Npi;i++) vector[i]=0; // Initialize current vector to 0.
 
 
@@ -2713,16 +3677,23 @@ char *cp;
 
 
          //Store the current vector into the input file:
+         f = fopen(input_vector_file,"a");
          for(k=0;k<size;k++)
          {
             if(k<=(size-2))fprintf(f,"%d,",vector[k]);
             else fprintf(f,"%d\n",vector[k]);
          } 
-         fclose(f);
-         // ONE VECTOR HAS BEEN STORED(APPENDED) INTO THE MAIN INPUT VECTOR FILE.
+         fclose(f); // ONE VECTOR HAS BEEN STORED(APPENDED) INTO THE MAIN INPUT VECTOR FILE.
          
+
+
          //Write one vector into the temporary input file:
          f=fopen(dfs_input_list,"w");
+         for(k=0;k<size;k++)
+         {
+            if(k<=(size-2))fprintf(f,"%d,",Pinput[k]->num);
+            else fprintf(f,"%d\n",Pinput[k]->num);
+         }
          for(k=0;k<size;k++)
          {
             if(k<=(size-2))fprintf(f,"%d,",vector[k]);
@@ -2730,25 +3701,32 @@ char *cp;
          }
          fclose(f);
 
-         dfs(dfs_input_list, dfs_output_list);//This input file only has one vector at a time.
+         //Send the current vector to dfs_helper:
+         memset(dfs_final_input,0,sizeof(dfs_final_input));
+         strcat(dfs_final_input,dfs_input_list);
+         strcat(dfs_final_input," ");
+         strcat(dfs_final_input,dfs_output_list);
+         rtg_dfs_helper(dfs_final_input);//This input file only has one vector at a time.
          current_detectable_faults = get_lines(dfs_output_list);
+         //printf("lines: %f\n",current_detectable_faults);
          current_fault_coverage = (current_detectable_faults/total_faults)*100;
-         printf("current_detectable_faults: %f\n",current_detectable_faults);
-         printf("current_fault_coverage: %f\n",current_fault_coverage);
+         //printf("current_detectable_faults: %f\n",current_detectable_faults);
+         //printf("current_fault_coverage: %f\n",current_fault_coverage);
          //NOTE: FAULT COVERAGE SHOULD ONLY HAVE UPTO 2 DECIMAL PLACES.
          count+=1;
+
          if(count%frequency==0)
          {
             //STORE THE current_fault_coverage into the fault_coverage file.
             f=fopen(output_FC_file,"a");
-            printf("Storing fault coverage: %.2f\n",current_fault_coverage);
+            //printf("Storing fault coverage: %.2f\n",current_fault_coverage);
             fprintf(f,"%.2f\n",current_fault_coverage);
             fclose(f);
          }
       }
    }
    count=0; // Reset for next logic.
-   printf("RANDOM INPUT VECTOR FILE HAS BEEN INITIALIZED");
+   //printf("RANDOM INPUT VECTOR FILE HAS BEEN INITIALIZED");
 
 
    // PERFORM DFS AND UPDATE FAULTCOVERAGE:
@@ -2766,7 +3744,8 @@ char *cp;
       //Add frequency logic:
       count+1;
    }*/
-   printf("RTG COMPLETE\n"); 
+   remove(dfs_output_list);
+   //printf("RTG COMPLETE\n"); 
 }
 /*-----------------------------------------------------------------------
 input: gate type
