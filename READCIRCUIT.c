@@ -86,6 +86,7 @@ struct pfs_node{
    int found;
 };
 
+
 struct result_dfs
 {
    int res_num[5000];
@@ -1053,6 +1054,42 @@ allocate()
    }
 }
 
+struct result_dfs sort_res_dfs( struct result_dfs res_dfs){
+    int i,j,temp_num,temp_type;
+    for(i=0;i<res_dfs.res_count;i++){
+        for(j=i+1;j<res_dfs.res_count;j++){
+            if(res_dfs.res_num[i]>res_dfs.res_num[j]){
+                temp_num=res_dfs.res_num[i];
+                temp_type=res_dfs.res_type[i];
+                res_dfs.res_num[i]=res_dfs.res_num[j];
+                res_dfs.res_type[i]=res_dfs.res_type[j];
+                res_dfs.res_num[j]=temp_num;
+                res_dfs.res_type[j]=temp_type;
+            }
+        }
+    } 
+   return res_dfs; 
+} 
+
+struct result_dfs removerepeated_res_dfs(struct result_dfs res_dfs){
+    int i,j,k;
+    for(i=0;i<res_dfs.res_count;i++){
+        for(j=i+1;j<res_dfs.res_count;){
+            if((res_dfs.res_num[i]==res_dfs.res_num[j]) && (res_dfs.res_type[i]==res_dfs.res_type[j]) ){
+                for(k=j;k<res_dfs.res_count;k++){
+                    res_dfs.res_num[k]=res_dfs.res_num[k+1];
+                    res_dfs.res_type[k]=res_dfs.res_type[k+1];
+                }
+                res_dfs.res_count--;
+            }
+            else{
+                j++;
+            }
+        }
+    }
+    return(res_dfs);
+}
+
 //rfl:
 rfl(cp)
 char *cp;
@@ -1066,34 +1103,41 @@ char *cp;
    NSTRUC *np;
    sscanf(cp, "%s", output_filename);
    f_ptr = fopen(output_filename,"w");
+   //int res_num[5000];
+   //int res_type[5000];
+   //int res_count;
+   res_dfs.res_count=0;
 
-   
-   for(i=0;i<Npi;i++)
-   {
-      sprintf(temp,"%d",Pinput[i]->num);
-      strcat(temp,"@0");
-      fprintf(f_ptr,"%s\n",temp);
-      strcpy(temp,"");
-      sprintf(temp,"%d",Pinput[i]->num);
-      strcat(temp,"@1");
-      fprintf(f_ptr,"%s\n",temp);
-   }
-
-   strcpy(temp,""); // Re-initialize temp.
    for(i=0;i<Nnodes;i++)
    {
       np = &Node[i];
-      if(np->type == 1)
+      if(np->type == 0) //PI
       {
-         sprintf(temp,"%d",np->num);
-         strcat(temp,"@0");
-         fprintf(f_ptr,"%s\n",temp);
-         strcpy(temp,"");
-         sprintf(temp,"%d",np->num);
-         strcat(temp,"@1");
-         fprintf(f_ptr,"%s\n",temp);
+         res_dfs.res_num[res_dfs.res_count] = np->num;
+         res_dfs.res_type[res_dfs.res_count] = 0;
+         res_dfs.res_count +=1;
+
+         res_dfs.res_num[res_dfs.res_count] = np->num;
+         res_dfs.res_type[res_dfs.res_count] = 1;
+         res_dfs.res_count +=1;
       }
-      
+
+      if(np->type == 1) //BRANCH
+      {
+         res_dfs.res_num[res_dfs.res_count] = np->num;
+         res_dfs.res_type[res_dfs.res_count] = 0;
+         res_dfs.res_count +=1;
+
+         res_dfs.res_num[res_dfs.res_count] = np->num;
+         res_dfs.res_type[res_dfs.res_count] = 1;
+         res_dfs.res_count +=1;
+      }
+
+   }
+   res_dfs = sort_res_dfs(res_dfs);
+   for(i=0;i<res_dfs.res_count;i++)
+   {
+     fprintf(f_ptr,"%d@%d\n",res_dfs.res_num[i],res_dfs.res_type[i]); 
    }
    //printf("All RFL faults updated\n");
    fclose(f_ptr);
@@ -1147,6 +1191,7 @@ int logicsim_single_pass(int pinputs[Npi])
 }
 
 */
+
 /*struct union_op(struct dfs_faultlist a, int dfs_indx1, struct dfs_faultlist b, int dfs_indx2)
 {
     int i = 0, j = 0, k=0;
@@ -1421,41 +1466,6 @@ void sort_aminusb(NSTRUC *np1){
 } 
 
 
-struct result_dfs sort_res_dfs( struct result_dfs res_dfs){
-    int i,j,temp_num,temp_type;
-    for(i=0;i<res_dfs.res_count;i++){
-        for(j=i+1;j<res_dfs.res_count;j++){
-            if(res_dfs.res_num[i]>res_dfs.res_num[j]){
-                temp_num=res_dfs.res_num[i];
-                temp_type=res_dfs.res_type[i];
-                res_dfs.res_num[i]=res_dfs.res_num[j];
-                res_dfs.res_type[i]=res_dfs.res_type[j];
-                res_dfs.res_num[j]=temp_num;
-                res_dfs.res_type[j]=temp_type;
-            }
-        }
-    } 
-   return res_dfs; 
-} 
-
-struct result_dfs removerepeated_res_dfs(struct result_dfs res_dfs){
-    int i,j,k;
-    for(i=0;i<res_dfs.res_count;i++){
-        for(j=i+1;j<res_dfs.res_count;){
-            if((res_dfs.res_num[i]==res_dfs.res_num[j]) && (res_dfs.res_type[i]==res_dfs.res_type[j]) ){
-                for(k=j;k<res_dfs.res_count;k++){
-                    res_dfs.res_num[k]=res_dfs.res_num[k+1];
-                    res_dfs.res_type[k]=res_dfs.res_type[k+1];
-                }
-                res_dfs.res_count--;
-            }
-            else{
-                j++;
-            }
-        }
-    }
-    return(res_dfs);
-}
 //struct result_dfs res_dfs;
 //dfs:
 dfs(cp)
@@ -2331,7 +2341,7 @@ char *cp;
    int current_level=0;
    int current_fault_free_val;
    int max_level = get_max_level();
-   printf("q:%f W:%d cycles: %d\n",q,W,cycles);
+   //printf("q:%f W:%d cycles: %d\n",q,W,cycles);
    int node_number,logic_number;
    struct pfs_node current_input_vector[Npi];// Store PI node_num and its value.
 
@@ -2340,14 +2350,15 @@ char *cp;
    int  logic_val;
    int iter=0; // Iteration number.
    NSTRUC *np;
-   
+   f2 = fopen(output_file,"w");
+   fclose(f2);
    
    //Set fault map:
    
    f = fopen(fault_list,"r");
    //printf("W: %d\n",W);
-   printf("q: %f\n",q);
-   printf("cycles: %d\n",cycles);
+   //printf("q: %f\n",q);
+   //printf("cycles: %d\n",cycles);
    i=0; // For storing map list;
    
    while(!feof(f))
@@ -2361,15 +2372,15 @@ char *cp;
                sscanf(line,"%d@%d", &node_number,&logic_number);
                map[j].node_num = node_number;
                map[j].fault_type = logic_number;
-               printf("map[%d]: %d %d\n",j,map[j].node_num,map[j].fault_type);
+               //printf("map[%d]: %d %d\n",j,map[j].node_num,map[j].fault_type);
          }  
          
       }
    }
    fclose(f); // Close fault list. 
    //FAULT MAP HAS BEEN INITIALIZED NOW. 
-   printf("MAIN FAULT MAP HAS BEEN INITIALIZED NOW.\n\n");
-   printf("Resetting found bit for all the \n");
+   //printf("MAIN FAULT MAP HAS BEEN INITIALIZED NOW.\n\n");
+   //printf("Resetting found bit for all the \n");
 
    for(j=1;j<=cycles;j++)
    {
@@ -2393,9 +2404,9 @@ char *cp;
 
    while(!feof(f1)) // Perform pfs() for every input vector.
    {
-        printf("\n\n\n Running for test-vector-%d\n");
+        //printf("\n\n\n Running for test-vector-%d\n");
         fgets(line,MAXLINE,f1);// From hereon line stores input vector.
-        printf("line: %s\n\n",line);
+        //printf("line: %s\n\n",line);
         input_vector = strtok(line,",");
         i=0;
         while(input_vector != NULL)
@@ -2429,7 +2440,7 @@ char *cp;
       current_level = 0;
       while(current_level <= max_level)
       {
-         printf("\ncurrent_level: %d\n",current_level);
+         //printf("\ncurrent_level: %d\n",current_level);
          for(i=0;i<Nnodes;i++)
          {
             np = &Node[i];
@@ -2442,11 +2453,11 @@ char *cp;
                         np->fault_list[j] = np->logical_value;
                   }
          
-                  printf("\n\nFinal fault_list of PI %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of PI %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
-                     printf("%d ",np->fault_list[j]);
-                  }     
+                     //printf("%d ",np->fault_list[j]);
+                  } */   
                }
 
 
@@ -2464,11 +2475,11 @@ char *cp;
                      if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
                   }
 
-                  printf("\n\nFinal fault_list of BRANCH Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of BRANCH Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                   
 
                }
@@ -2496,11 +2507,11 @@ char *cp;
                      if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
                   }
 
-                  printf("\n\nFinal fault_list of XOR Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of XOR Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                }
 
 
@@ -2529,11 +2540,11 @@ char *cp;
                      if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
                   }
 
-                  printf("\n\nFinal fault_list of OR Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of OR Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                }
 
 
@@ -2568,11 +2579,11 @@ char *cp;
                   }
 
 
-                  printf("\n\nFinal fault_list of NOR Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of NOR Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                }
 
 
@@ -2591,11 +2602,11 @@ char *cp;
                      if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
                   }
 
-                  printf("\n\nFinal fault_list of NOT Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of NOT Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                   
                }
 
@@ -2604,7 +2615,7 @@ char *cp;
                if(np->type == 6) //NAND
                {
                   //INITIALIZE THE FAULT LIST:
-                  printf("\nSetting fault list for node: %d\n",np->num);
+                  //printf("\nSetting fault list for node: %d\n",np->num);
                   for(k=1;k<=cycles;k++)
                   {
                      np->fault_list[k] = 1; //1&x = x; so we initialize the fault_list to 1.
@@ -2658,11 +2669,11 @@ char *cp;
                      }
                   }
 
-                  printf("\nFinal fault_list of NAND Node %d:\n",np->num);
+                  /*printf("\nFinal fault_list of NAND Node %d:\n",np->num);
                   for(j=0;j<=cycles;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                   
                }
 
@@ -2693,11 +2704,11 @@ char *cp;
                      if(np->num == map[j].node_num) np->fault_list[j] = map[j].fault_type;
                   }
 
-                  printf("\n\nFinal fault_list of AND Node %d:\n",np->num);
+                  /*printf("\n\nFinal fault_list of AND Node %d:\n",np->num);
                   for(j=0;j<W;j++)
                   {
                      printf("%d ",np->fault_list[j]);
-                  }
+                  }*/
                }
 
             }
@@ -2705,28 +2716,28 @@ char *cp;
          current_level+=1;
       }
 
-      printf("\n\nFAULT LIST UPDATED FOR ALL THE NODES\n");
+      //printf("\n\nFAULT LIST UPDATED FOR ALL THE NODES\n");
 
       //STORE THE DETECTABLE FAULTS TO THE OUTPUT FILE:
       //using file append will be helpful.
       
       f2 = fopen(output_file,"a");
-      printf("Writing all detectable faults to the output file:\n");
+      //printf("Writing all detectable faults to the output file:\n");
       for(j=0;j<Npo;j++)
       {
          current_fault_free_val = Poutput[j]->fault_list[0];
-         printf("\n\noutput node: %d\n",Poutput[j]->num);
-         printf("current_fault_free_val: %d\n",Poutput[j]->fault_list[0]);
-         for(k=1;k<cycles;k++)
+         //printf("\n\noutput node: %d\n",Poutput[j]->num);
+         //printf("current_fault_free_val: %d\n",Poutput[j]->fault_list[0]);
+         for(k=1;k<=cycles;k++)
          {
             if(current_fault_free_val ^ Poutput[j]->fault_list[k])
             {
-               printf("Writing for output j = %d\n",j);
+               //printf("Writing for output j = %d\n",j);
                   if(map[k].found==0)
                   {
                   map[k].found=1;
-                  printf("k:%d\n",k);
-                  printf("Storing %d@%d\n",map[k].node_num,map[k].fault_type);
+                  //printf("k:%d\n",k);
+                  //printf("Storing %d@%d\n",map[k].node_num,map[k].fault_type);
                   //printf("map[%d].node_num: %d\n",k,map[k].node_num);
                   //printf("map[%d].fault_type: %d\n",k,map[k].fault_type);
                   //printf("storing: %d@%d\n",map[k].node_num,map[k].fault_type);
@@ -2743,14 +2754,14 @@ char *cp;
    } 
       //fclose(f); // Close fault list.
     fclose(f1); // Close Input vector list.
-    printf("PFS COMPLETED SUCCESSFULLY\n");
+    //printf("PFS COMPLETED SUCCESSFULLY\n");
 }
 
 void rtg_dfs_helper(cp)
 char *cp;
 {
    sscanf(cp, "%s %s", input_file_dfs,output_file_dfs);
-   printf("inside dfs:\n%s\n %s",input_file_dfs,output_file_dfs);
+   //printf("inside dfs:\n%s\n %s",input_file_dfs,output_file_dfs);
    char line[10000];
    int i,j,k,current_level,node_number,logic_val;
    NSTRUC *np,tmp;
