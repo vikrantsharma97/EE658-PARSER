@@ -2759,7 +2759,7 @@ char *cp;
    FILE *file_ptr;
    file_ptr = fopen(input_file_dfs,"r");
    FILE *file_ptr2;
-   file_ptr2 = fopen(output_file_dfs,"a");
+   file_ptr2 = fopen(output_file_dfs,"w");
    char *pt;
    const char *comp_x = "x";
    const char *comp_X = "X";
@@ -2782,7 +2782,7 @@ char *cp;
    int non_cont_indx[100],cont_indx[100];
    int count;
    //struct result_dfs res_dfs;
-   res_dfs.res_count =0;
+   //res_dfs.res_count =0;
    //************************************************
    while(!feof(file_ptr))
    {
@@ -3456,8 +3456,10 @@ char *cp;
    res_dfs=sort_res_dfs(res_dfs);
    //for(j=0;j<res_dfs.res_count;j++) printf("%d@%d ",res_dfs.res_num[j],res_dfs.res_type[j]); 
    res_dfs=removerepeated_res_dfs(res_dfs);
+   //printf("********count=%d***********\n\n",res_dfs.res_count);
    //printf("\n\n\n\n"); 
    //for(j=0;j<res_dfs.res_count;j++) printf("%d@%d ",res_dfs.res_num[j],res_dfs.res_type[j]); 
+   //printf("\n\n\n");
    for(j=0;j<res_dfs.res_count;j++) fprintf(file_ptr2,"%d@%d\n",res_dfs.res_num[j],res_dfs.res_type[j]); 
    fclose(file_ptr2); 
 
@@ -3476,6 +3478,7 @@ char *cp;
    int vector[ Npi]; // Input vector length = Npi
    int size = Npi;
    struct pfs_node map[2*Nnodes];
+   res_dfs.res_count = 0;
    //2^31 - INT_MAX = 1;
    //printf("size: %d\n",size);
    int max_patterns = (size<=31) ? pow(2,size): -1;
