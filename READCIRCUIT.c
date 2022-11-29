@@ -450,13 +450,13 @@ help()
    printf("print this help information\n");
    //printf("LEV filename - ");
    //printf(" Performs levelization of the circuit that was read and outputs the circuit data into the given file\n");
-   printf("LOGICSIM input_filename output_filename - ");
+   printf("LOGICSIM <input_filename> <output_filename> - ");
    printf("Performs the logic simulation of the given circuit and generates the output vector\n");
-   printf("RFL output_filename - ");
+   printf("RFL <output_filename> - ");
    printf(" Generates a reduced list of faults required for the ATPG of the circuit\n");
-   printf("DFS filename - ");
+   printf("DFS <input_file> <output_file> - ");
    printf("Reports all the detectable (so not just the RFL) faults using the input test patterns\n");
-   printf("PFS filename - ");
+   printf("PFS <input_vector_file>  <input_fault_list>  <output_file> - ");
    printf("Reports which one of the faults can be detected with the input test patterns using the PFS method\n");
    printf("RTG #random_test_patterns  report_frequency   test_pattern_report_filename   FC_report_filename-\n"); //UPDATE THIS.
    printf("QUIT - ");
