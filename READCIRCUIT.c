@@ -1105,7 +1105,7 @@ int get_lines(char *filename): Returns the number of lines in a file.
  int get_lines(char *filename)
  {
     //printf("Entered get lines\n");
-    printf("current_file in get_lines(): %s\n",filename);
+    //printf("current_file in get_lines(): %s\n",filename);
     char input_filename[MAXLINE];
     char line[MAXLINE];
     char *r;
@@ -1462,7 +1462,7 @@ dfs(cp)
 char *cp;
 {
    sscanf(cp, "%s %s", input_file_dfs,output_file_dfs);
-   printf("inside dfs:\n%s\n %s",input_file_dfs,output_file_dfs);
+   //printf("inside dfs:\n%s\n %s",input_file_dfs,output_file_dfs);
    char line[10000];
    int i,j,k,current_level,node_number,logic_val;
    NSTRUC *np,tmp;
@@ -2302,7 +2302,7 @@ void logicsim_single_pass()
 
    // At this point all the nodes have been assigned a logical value and we have traversed
    // all the levels. Hence, we now write the output logic values to the output files.
-   printf("logicsim_single_pass() completed.\n\n");
+   //printf("logicsim_single_pass() completed.\n\n");
 }
 
 
@@ -2311,7 +2311,7 @@ void logicsim_single_pass()
 pfs(cp)
 char *cp;
 {
-   printf("Entered pfs\n");
+   //printf("Entered pfs\n");
    FILE *f,*f1,*f2;
    char fault_list[MAXLINE];
    char input_vector_list[MAXLINE];
@@ -2319,9 +2319,9 @@ char *cp;
    char line[MAXLINE];
    
    sscanf(cp, "%s %s %s",input_vector_list,fault_list,output_file);
-   printf("input_vector_list: %s\n\n",input_vector_list);
-   printf("fault_list: %s\n\n",fault_list);
-   printf("output file: %s\n",output_file);
+   //printf("input_vector_list: %s\n\n",input_vector_list);
+   //printf("fault_list: %s\n\n",fault_list);
+   //printf("output file: %s\n",output_file);
    float q = get_lines(fault_list); // Must be float otherwise q/W-1 itself gets rounded.
    int iterations = ceil(q/(W-1)); // No. of iterations = ceil(q/(W-1)).
    int iteration_count=0,test_count=1;
@@ -3542,7 +3542,7 @@ char *cp;
    if((Npi<=20) && (num_tests<=max_patterns)) // If there are less than 20 PIs we generate patterns exhaustively.
    // In the industry, exhaustive testing is feasible for Npi=20~25 so we chose Npi<=20.
    {
-      printf("Entered exhaustive if-loop\n");
+      //printf("Entered exhaustive if-loop\n");
       //printf("input vector file: %s\n",input_vector_file);
       f = fopen(input_vector_file,"w");
       for(k=0;k<size;k++)
@@ -3603,11 +3603,11 @@ char *cp;
          //dfs("c17t");
          //exit(-1);
          current_detectable_faults = get_lines(dfs_output_list);
-         printf("lines: %f\n",current_detectable_faults);
+         //printf("lines: %f\n",current_detectable_faults);
          //printf("Total faults: %f\n",total_faults);
          current_fault_coverage = (current_detectable_faults/total_faults)*100;
-         printf("current_detectable_faults: %f\n",current_detectable_faults);
-         printf("current_fault_coverage: %f\n",current_fault_coverage);
+         //printf("current_detectable_faults: %f\n",current_detectable_faults);
+         //printf("current_fault_coverage: %f\n",current_fault_coverage);
          //NOTE: FAULT COVERAGE SHOULD ONLY HAVE UPTO 2 DECIMAL PLACES.
          count+=1;
          //exit(-1);
@@ -3615,7 +3615,7 @@ char *cp;
          {
             //STORE THE current_fault_coverage into the fault_coverage file.
             f=fopen(output_FC_file,"a");
-            printf("Storing fault coverage: %.2f\n",current_fault_coverage);
+            //printf("Storing fault coverage: %.2f\n",current_fault_coverage);
             fprintf(f,"%.2f\n",current_fault_coverage);
             fclose(f);
          }
@@ -3626,7 +3626,7 @@ char *cp;
 
    else // Generate random test patterns.
    {
-      printf("Entered non-exhaustive else-loop\n");
+      //printf("Entered non-exhaustive else-loop\n");
       // Store the PIs on the first line.
       f = fopen(input_vector_file,"w");
       for(k=0;k<size;k++)
@@ -3643,7 +3643,7 @@ char *cp;
          /*Intializes random number generator */
          //srand((unsigned) time(&t));
          j = rand()%79; // 79 was chosen randomly.
-         printf("j: %d\n",j);
+         //printf("j: %d\n",j);
 
          for(i=0;i<Npi;i++) vector[i]=0; // Initialize current vector to 0.
 
@@ -3697,10 +3697,10 @@ char *cp;
          strcat(dfs_final_input,dfs_output_list);
          rtg_dfs_helper(dfs_final_input);//This input file only has one vector at a time.
          current_detectable_faults = get_lines(dfs_output_list);
-         printf("lines: %f\n",current_detectable_faults);
+         //printf("lines: %f\n",current_detectable_faults);
          current_fault_coverage = (current_detectable_faults/total_faults)*100;
-         printf("current_detectable_faults: %f\n",current_detectable_faults);
-         printf("current_fault_coverage: %f\n",current_fault_coverage);
+         //printf("current_detectable_faults: %f\n",current_detectable_faults);
+         //printf("current_fault_coverage: %f\n",current_fault_coverage);
          //NOTE: FAULT COVERAGE SHOULD ONLY HAVE UPTO 2 DECIMAL PLACES.
          count+=1;
 
@@ -3708,14 +3708,14 @@ char *cp;
          {
             //STORE THE current_fault_coverage into the fault_coverage file.
             f=fopen(output_FC_file,"a");
-            printf("Storing fault coverage: %.2f\n",current_fault_coverage);
+            //printf("Storing fault coverage: %.2f\n",current_fault_coverage);
             fprintf(f,"%.2f\n",current_fault_coverage);
             fclose(f);
          }
       }
    }
    count=0; // Reset for next logic.
-   printf("RANDOM INPUT VECTOR FILE HAS BEEN INITIALIZED");
+   //printf("RANDOM INPUT VECTOR FILE HAS BEEN INITIALIZED");
 
 
    // PERFORM DFS AND UPDATE FAULTCOVERAGE:
@@ -3734,7 +3734,7 @@ char *cp;
       count+1;
    }*/
    remove(dfs_output_list);
-   printf("RTG COMPLETE\n"); 
+   //printf("RTG COMPLETE\n"); 
 }
 /*-----------------------------------------------------------------------
 input: gate type
