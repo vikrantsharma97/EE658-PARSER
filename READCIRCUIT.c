@@ -64,7 +64,7 @@ lev()
 #define Upcase(x) ((isalpha(x) && islower(x))? toupper(x) : (x))
 #define Lowcase(x) ((isalpha(x) && isupper(x))? tolower(x) : (x))
 
-enum e_com {READ, PC, HELP, QUIT, LOGICSIM, RFL, DFS, PFS};  // Command list. removed lev
+enum e_com {READ, PC, HELP, QUIT, LOGICSIM, RFL, DFS, PFS,DALG,PODEM,ATPG_DET,RTG};  // Command list. removed lev
 enum e_state {EXEC, CKTLD};         /* Gstate values */
 enum e_ntype {GATE, PI, FB, PO};    /* column 1 of circuit format */ // Node type.
 enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};  /* gate types */
@@ -120,8 +120,11 @@ typedef struct n_struc {
 
 
 /*----------------- Command definitions ----------------------------------*/
-#define NUMFUNCS 9
+#define NUMFUNCS 12 
+// Updated after adding dalg(),podem() and atpg_det().
+//    READ, PC, HELP, QUIT, LOGICSIM, RFL, DFS, PFS,DALG,PODEM,ATPG_DET
 int cread(), pc(), help(), quit(), logicsim(), rfl(), dfs(), pfs(), rtg();
+int dalg(),podem(),atpg_det();
 int all_levels_assigned(), all_logics_aasigned(), get_max_level();
 struct cmdstruc command[NUMFUNCS] = {
    {"READ", cread, EXEC},
@@ -133,7 +136,10 @@ struct cmdstruc command[NUMFUNCS] = {
    {"RFL",rfl, CKTLD },
    {"DFS", dfs, CKTLD },
    {"PFS", pfs, CKTLD },
-   {"RTG",rtg,CKTLD}
+   {"RTG",rtg,CKTLD},
+   {"DALG",dalg,CKTLD},
+   {"PODEM",podem,CKTLD},
+   {"ATPG_DET",atpg_det,CKTLD}
 };
 
 /*------------------------------------------------------------------------*/
@@ -3746,6 +3752,63 @@ char *cp;
    }*/
    remove(dfs_output_list);
    //printf("RTG COMPLETE\n"); 
+}
+
+
+void imply_and_check()
+{
+   NSTRUC *np;
+}
+
+
+dalg(char *cp)
+{
+   printf("Entered DALG\n");
+   int faulty_node;
+   int fault;
+   int imply_and_check_result,dalg_result;
+   int c;
+   NSTRUC *np;
+   sscanf(cp, "%d %d", &faulty_node,&fault);
+   printf("DALG fault: %d s-a-%d\n",faulty_node,fault);
+
+   //Set the output of all the gates to X(-1).
+
+   // Add the current gate to D-Frontier.
+
+   // Do first imply_and_check()
+   //imply_and_check_result = imply_and_check(np);
+
+   /* PART-1:
+   if(error not at output)
+   {
+      if(D-frontier is empty) return failure;
+      else 
+      {
+         while(D-frontier is not empty)
+         {
+            pop() from D-frontier.
+            c = assign controlling value to any one input of G;
+            for(all the other inputs that have value X(-1))
+            {
+               unode[i]->logical_val= 1-c;//(Non-controlling value.)
+            }
+            if(dalg_result == 1) return success;
+         }
+         return failure;
+      }
+   }*/
+
+}
+
+podem(char *cp)
+{
+   printf("Entered PODEM\n");
+}
+
+atpg_det(char *cp)
+{
+   printf("Entered ATPG_DET\n");
 }
 /*-----------------------------------------------------------------------
 input: gate type
