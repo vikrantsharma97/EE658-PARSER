@@ -3789,6 +3789,7 @@ dalg(char *cp)
          {
             pop() from D-frontier.
             c = assign controlling value to any one input of G;
+            NOTE: We can create a function with a map to get controllong value. Just like we have gname();
             for(all the other inputs that have value X(-1))
             {
                unode[i]->logical_val= 1-c;//(Non-controlling value.)
@@ -3798,6 +3799,33 @@ dalg(char *cp)
          return failure;
       }
    }*/
+
+
+
+   /*
+   AT THIS POINT WE HAVE PROPAGATED THE ERROR TO A PO:
+   PART-2:
+   if(J-frontier == NULL) return 1(success);
+
+   else
+   {
+      pop() from J-frontier;
+      NOTE: We can create a function with a map to get controllong value. Just like we have gname();
+      c = controlling value of G;
+
+      while(all inputs of G are not specified i.e even if one input is X(-1))
+      {
+         select unode[i] that has np->logical_val==-1;
+         unode[i]->logical_val = c;
+         if(dalg_result == 1) return 1(success);
+         unode[i]->logical_val = 1-c(c');
+      }
+      return 0(Failure);
+      
+   }
+   */
+
+
 
 }
 
