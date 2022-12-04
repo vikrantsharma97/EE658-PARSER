@@ -7,7 +7,7 @@
   The format is as follows:
 
 1        2        3        4           5           6 ...
-------   -------  -------  ---------   --------    --------
+------   -------  -------  ---------   --------    ---------
 0 GATE   outline  0 IPT    #_of_fout   #_of_fin    inlines
                   1 BRCH
                   2 XOR(currently not implemented)
