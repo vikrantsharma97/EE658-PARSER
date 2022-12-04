@@ -3835,6 +3835,30 @@ char *cp;
    //printf("RTG COMPLETE\n"); 
 }
 
+int error_at_PO()
+{
+   int i;
+   for(i=0;i<Npo;i++)
+   {
+      if((Poutput[i]->node_fault == -2) || (Poutput[i]->node_fault == -3))
+       return 1;
+   }
+   return 0;
+}
+
+int controlling_val(NSTRUC *np)
+{
+   switch(np->type)
+   {
+      case 2: return 1; //XOR
+      case 3: return 1; //OR
+      case 4: return 1; //NOR
+      case 5: return 0; //NOT
+      case 6: return 0; //NAND
+      case 7: return 0; //AND
+      default: ;// PI/BRANCH. THE CODE SHOULD NOT ENTER HERE FOR THESE CASES.
+   }
+}
 
 void imply_and_check(NSTRUC *np)
 {
@@ -3844,7 +3868,7 @@ void imply_and_check(NSTRUC *np)
 
 }
 
-void dalg_helper()
+int dalg_helper()
 {
    printf("Entered DALG_helper\n");
    /* PART-1:
@@ -3862,7 +3886,7 @@ void dalg_helper()
             {
                unode[i]->logical_val= 1-c;//(Non-controlling value.)
             }
-            if(dalg_result == 1) return success;
+            if(dalg_helper) return success;
          }
          return failure;
       }
@@ -3885,7 +3909,7 @@ void dalg_helper()
       {
          select unode[i] that has np->logical_val==-1;
          unode[i]->logical_val = c;
-         if(dalg_result == 1) return 1(success);
+         if(dalg_helper) return 1(success);
          unode[i]->logical_val = 1-c(c');
       }
       return 0(Failure);
@@ -3934,8 +3958,7 @@ dalg(char *cp)
    // Do first imply_and_check()
    imply_and_check(temp);
    dalg_helper();  
-print("Finish dalg");
-exit(-1);
+
 }
 
 podem(char *cp)
