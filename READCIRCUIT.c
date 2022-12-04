@@ -107,6 +107,7 @@ typedef struct n_struc {
    struct n_struc **dnodes;   /* pointer to array of down nodes */
    int level;                 /* level of the gate output */
    int logical_value;         /* For storing the logical value of every node.*/
+   int node_fault;
    int fault_list[(int)(CHAR_BIT * sizeof(void *))];
    //dfs
    int num_fl[10000];
@@ -115,9 +116,89 @@ typedef struct n_struc {
    //
 } NSTRUC;  
 
+struct stack
+{
+    int maxsize;    // define max capacity of the stack
+    int top;
+    // int *items;
+    NSTRUC *Node;
+    
+};
+ 
+// Utility function to initialize the stack
+struct stack* newStack(int capacity)
+{
+    struct stack *pt = (struct stack*)malloc(sizeof(struct stack));
+ 
+    pt->maxsize = capacity;
+    pt->top = -1;
+    pt->Node = (NSTRUC **)malloc(sizeof(NSTRUC *) * capacity);
+ 
+    return pt;
+}
+ 
+// Utility function to return the size of the stack
+int size(struct stack *pt) {
+    return pt->top + 1;
+}
+ 
+// Utility function to check if the stack is empty or not
+int isEmpty(struct stack *pt) {
+    return pt->top == -1;                   // or return size(pt) == 0;
+}
+ 
+// Utility function to check if the stack is full or not
+int isFull(struct stack *pt) {
+    return pt->top == pt->maxsize - 1;      // or return size(pt) == pt->maxsize;
+}
+ 
+// Utility function to add an element `x` to the stack
+void push(struct stack *pt, NSTRUC x)
+{
+    // check if the stack is already full. Then inserting an element would
+    // lead to stack overflow
+    if (isFull(pt))
+    {
+        printf("Overflow\nProgram Terminated\n");
+        exit(EXIT_FAILURE);
+    }
+ 
+    //printf("Inserting %d\n", x);
+ 
+    // add an element and increment the top's index
+    pt->Node[++pt->top] = x;
+}
+ 
+// Utility function to return the top element of the stack
+NSTRUC *peek(struct stack *pt)
+{
+    // check for an empty stack
+    if (!isEmpty(pt)) {
+        return &pt->Node[pt->top];
+    }
+    else {
+        exit(EXIT_FAILURE);
+    }
+}
+ 
+// Utility function to pop a top element from the stack
+NSTRUC *pop(struct stack *pt)
+{
+    // check for stack underflow
+    if (isEmpty(pt))
+    {
+        printf("Underflow\nProgram Terminated\n");
+        exit(EXIT_FAILURE);
+    }
+ 
+    //printf("Removing %d\n", peek(pt));
+ 
+    // decrement stack size by 1 and (optionally) return the popped element
+    return &pt->Node[pt->top--];
+}
 
-
-
+//struct stack *dalg_dfrontier = newStack(10);
+//struct stack *dalg_jfrontier = newStack(10);
 
 /*----------------- Command definitions ----------------------------------*/
 #define NUMFUNCS 12 
@@ -3755,30 +3836,17 @@ char *cp;
 }
 
 
-void imply_and_check()
+void imply_and_check(NSTRUC *np)
 {
-   NSTRUC *np;
+   
+   struct stack *dalg_dfrontier = newStack(MAXLINE);
+   struct stack *dalg_jfrontier = newStack(MAXLINE);
+
 }
 
-
-dalg(char *cp)
+void dalg_helper()
 {
-   printf("Entered DALG\n");
-   int faulty_node;
-   int fault;
-   int imply_and_check_result,dalg_result;
-   int c;
-   NSTRUC *np;
-   sscanf(cp, "%d %d", &faulty_node,&fault);
-   printf("DALG fault: %d s-a-%d\n",faulty_node,fault);
-
-   //Set the output of all the gates to X(-1).
-
-   // Add the current gate to D-Frontier.
-
-   // Do first imply_and_check()
-   //imply_and_check_result = imply_and_check(np);
-
+   printf("Entered DALG_helper\n");
    /* PART-1:
    if(error not at output)
    {
@@ -3825,8 +3893,49 @@ dalg(char *cp)
    }
    */
 
+}
 
+dalg(char *cp)
+{
+   printf("Entered DALG\n");
+   int faulty_node;
+   int fault;
+   int imply_and_check_result,dalg_result;
+   int c,j,k,i;
+   NSTRUC *np,*temp;
+   sscanf(cp, "%d %d", &faulty_node,&fault);
+   printf("DALG fault: %d s-a-%d\n",faulty_node,fault);
 
+   //Set the output of all the gates to X(-1).
+   for(i=0;i<Nnodes;i++){
+      np=&Node[i];
+
+      // Assign D/D' on faulty signal
+      if(np->num==faulty_node)
+      {
+         temp=np;
+         if(fault==0)
+         {
+             np->logical_value=1;
+             np->node_fault=-2; //D
+         }
+         if(fault==1)
+         {
+             np->logical_value=0;
+             np->node_fault=-3; //D'
+         }
+      }
+         
+      np->logical_value=-1; //X
+      np->node_fault=-4; //Garbage
+      
+   }
+
+   // Do first imply_and_check()
+   imply_and_check(temp);
+   dalg_helper();  
+print("Finish dalg");
+exit(-1);
 }
 
 podem(char *cp)
