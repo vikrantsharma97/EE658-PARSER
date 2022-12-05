@@ -3921,6 +3921,18 @@ int dalg_helper()
 
 dalg(char *cp)
 {
+   /*
+   LOGICAL VALUE	REPRESENTATION
+      0				LOGICAL 0
+      1				LOGICAL 1
+     -1					X
+     -2					D
+     -3					D'
+
+     NOTE: In the node struct we added a new value called node_fault which
+     stores the fault-type of the node.
+   */
+
    printf("Entered DALG\n");
    int faulty_node;
    int fault;
@@ -3931,7 +3943,8 @@ dalg(char *cp)
    printf("DALG fault: %d s-a-%d\n",faulty_node,fault);
 
    //Set the output of all the gates to X(-1).
-   for(i=0;i<Nnodes;i++){
+   for(i=0;i<Nnodes;i++)
+   {
       np=&Node[i];
 
       // Assign D/D' on faulty signal
@@ -3963,12 +3976,28 @@ dalg(char *cp)
 
 podem(char *cp)
 {
+   /*
+   LOGICAL VALUE	REPRESENTATION
+      0				LOGICAL 0
+      1				LOGICAL 1
+     -1					X
+     -2					D
+     -3					D'
+
+     NOTE: In the node struct we added a new value called node_fault which
+     stores the fault-type of the node.
+   */
+
    printf("Entered PODEM\n");
 }
 
 atpg_det(char *cp)
 {
    printf("Entered ATPG_DET\n");
+   //CALL READ() HERE!!!!! ITS NOT GUARANTEED THAT THE USER WILL CALL
+   // READ() BEFORE THIS FUNCTION.
+
+   //DON'T USE RANDOM PATTERNS HERE.
 }
 /*-----------------------------------------------------------------------
 input: gate type
