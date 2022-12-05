@@ -3961,14 +3961,81 @@ dalg(char *cp)
 
 }
 
-podem(char *cp)
-{
-   printf("Entered PODEM\n");
+void Backtrace(){
+   printf("Entered Backtrace\n");
+   /* 
+   //map objective into PI assignment //
+   begin
+      v=vk
+      while k is a gate output
+      begin 
+            i= inversion of k
+         select an input (j) of k with value x
+         v=v⊕i
+         k=j
+      end
+      //k is PI //
+      return (k,v)
+   end
+   */
+
 }
 
-atpg_det(char *cp)
-{
-   printf("Entered ATPG_DET\n");
+void Objective(NSTRUC *np){
+   printf("Entered Objective\n");
+   /* 
+   //the target fault is l s-a-v //
+   if (the value of l is x ) then return (l,vbar)
+   select a gate (G) from the D-frontier
+   select an input (j) of G with value x
+   c=controlling value of G
+   c = controlling_val(np);
+   return (j,cbar)
+   
+
+   int c;
+   
+   if (l == x){
+      l->logical_val = ~v;
+   }
+   else{
+
+      pop() Gate G from D-frontier.
+      j = null;
+      for (input in (Gate G's inputs)){
+         if (input = X){
+            j = input;
+            break;
+         }
+      }
+      c = controlling_val(np);
+      j->logical_val = ~c;
+
+   }
+   */
+   
+}
+  
+
+podem(char *cp)
+{  
+
+   printf("Entered PODEM\n");
+   /*
+   while()
+   if (error at PO) then SUCCESS
+   if (test not possible) then return FAILURE
+   (k,vk) = Objective()
+   (j,vj) = Backtrace (k,vk) //j is a PI //
+   Imply (j,vj)
+   if PODEM() = SUCCESS then return 1(success)
+   //reverse decision //
+   Imply (j,vjbar)
+   if PODEM() = SUCCESS then return 1(success)
+   Imply (j,x) // Why not Imply_and_Check? //
+   return FAILURE
+   */
+   
 }
 /*-----------------------------------------------------------------------
 input: gate type
