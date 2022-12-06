@@ -3834,6 +3834,40 @@ char *cp;
    remove(dfs_output_list);
    //printf("RTG COMPLETE\n"); 
 }
+//**************************** PHASE-3 ***********************************
+
+bool error_at_PO()
+{
+   NSTRUC *np;
+   int i;
+   for(i=0;i<Npo;i++)
+   {
+      np = &Node[i];
+      if((np->node_fault == -2) || (np->node_fault == -3))
+         return 1;
+   }
+   return false;
+}
+
+int controlling_val(int type)
+{
+   //                0     1    2   3    4    5    6     7
+   // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};
+   switch(type)
+   {
+   case 2: return 1; //XOR: No controlling value so we can return anything.
+   case 3: return 1;  //OR
+   case 4: return 1;  //NOR
+   //case 5: return ;  //NOT
+   case 6: return 0;  //NAND
+   case 7: return 0;  //AND
+   default: return -1; // The code should not enter 
+   }
+
+
+}
+
+
 
 void get_all_nodes(NSTRUC *node, struct stack *all_nodes){   
    printf("Entered get_all_nodes()\n");
@@ -4079,6 +4113,7 @@ void Objective(NSTRUC *np){
    /* 
    //the target fault is l s-a-v //
    if (the value of l is x ) then return (l,vbar)
+
    select a gate (G) from the D-frontier
    select an input (j) of G with value x
    c=controlling value of G
@@ -4101,7 +4136,7 @@ void Objective(NSTRUC *np){
             break;
          }
       }
-      c = controlling_val(np);
+      c = controlling_val(np->type);
       j->logical_val = ~c;
 
    }
