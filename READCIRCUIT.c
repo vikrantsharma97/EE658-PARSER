@@ -7,7 +7,7 @@
   The format is as follows:
 
 1        2        3        4           5           6 ...
-------   -------  -------  ---------   --------    ---------
+------   -------  -------  ---------   --------    --------
 0 GATE   outline  0 IPT    #_of_fout   #_of_fin    inlines
                   1 BRCH
                   2 XOR(currently not implemented)
@@ -108,6 +108,7 @@ typedef struct n_struc {
    int level;                 /* level of the gate output */
    int logical_value;         /* For storing the logical value of every node.*/
    int node_fault;
+   int visited;
    int fault_list[(int)(CHAR_BIT * sizeof(void *))];
    //dfs
    int num_fl[10000];
@@ -132,7 +133,7 @@ struct stack* newStack(int capacity)
  
     pt->maxsize = capacity;
     pt->top = -1;
-    pt->Node = (NSTRUC **)malloc(sizeof(NSTRUC *) * capacity);
+    pt->Node = malloc(sizeof(NSTRUC **) * capacity);
  
     return pt;
 }
@@ -155,20 +156,18 @@ int isFull(struct stack *pt) {
 // Utility function to add an element `x` to the stack
 void push(struct stack *pt, NSTRUC x)
 {
-    // check if the stack is already full. Then inserting an element would
-    // lead to stack overflow
-    if (isFull(pt))
-    {
-        printf("Overflow\nProgram Terminated\n");
-        exit(EXIT_FAILURE);
-    }
+   // check if the stack is already full. Then inserting an element would
+   // lead to stack overflow
+   if (isFull(pt))
+   {
+      printf("Overflow\nProgram Terminated\n");
+      exit(EXIT_FAILURE);
+   }
  
-    //printf("Inserting %d\n", x);
- 
-    // add an element and increment the top's index
-    pt->Node[++pt->top] = x;
+   // add an element and increment the top's index
+   pt->Node[++pt->top] = x;
 }
- 
+
 // Utility function to return the top element of the stack
 NSTRUC *peek(struct stack *pt)
 {
@@ -1350,6 +1349,7 @@ void union_op(NSTRUC *np1, NSTRUC *np2) //np1 is gate output
     //printf("\n");
     //Sorting
 }
+
 int removerepeated(NSTRUC *np1){
     int i,j,k;
     for(i=0;i<np1->count_fl;i++){
@@ -3835,40 +3835,129 @@ char *cp;
    //printf("RTG COMPLETE\n"); 
 }
 
-int error_at_PO()
-{
+void get_all_nodes(NSTRUC *node, struct stack *all_nodes){   
+   printf("Entered get_all_nodes()\n");
    int i;
-   for(i=0;i<Npo;i++)
-   {
-      if((Poutput[i]->node_fault == -2) || (Poutput[i]->node_fault == -3))
-       return 1;
+   if (node->fout > 0){
+      printf("fout > 0\n");
+      for (i=0;i<node->fout; i++)
+      {
+         printf("Checking dnodes()\n");
+         push(all_nodes, *node->dnodes[i]);
+         get_all_nodes(node->dnodes[i], all_nodes);
+      }
    }
-   return 0;
-}
 
-int controlling_val(NSTRUC *np)
-{
-   switch(np->type)
-   {
-      case 2: return 1; //XOR
-      case 3: return 1; //OR
-      case 4: return 1; //NOR
-      case 5: return 0; //NOT
-      case 6: return 0; //NAND
-      case 7: return 0; //AND
-      default: ;// PI/BRANCH. THE CODE SHOULD NOT ENTER HERE FOR THESE CASES.
+   if (node->fin > 0){
+      for (i=0;i<node->fin; i++)
+      {
+         printf("Checking unodes()\n");
+         push(all_nodes, *node->unodes[i]);
+         get_all_nodes(node->unodes[i], all_nodes);
+      }
    }
 }
 
-void imply_and_check(NSTRUC *np)
+void imply_and_check(NSTRUC *fault_node)
 {
+   printf("Entered imply_and_check()\n");
+   int i;
+   struct stack *dalg_dfrontier = newStack(Nnodes);
+   struct stack *dalg_jfrontier = newStack(Nnodes);
+   struct stack *all_nodes = newStack(Nnodes);
+   printf("Entering get_all_nodes\n");
+   get_all_nodes(fault_node, all_nodes);
+   printf("popping a node from get_all_nodes\n");
+  // pop(all_nodes);
+
+   // we have assigned x(-1)to all nodes and D/D' to faulty signal
+   // Loop through all down nodes for faulty node
+   /*for (i=0;i<fault_node->fout; i++)
+   {
+      NSTRUC *np;
+      np = fault_node->dnodes[i];
+      // Assign logical and node fault to down node np
+      np->logical_value=fault_node->logical_value;
+      np->node_fault=fault_node->node_fault; 
+      check_and_push_to_dfrontier(np);
+   }
+
+   check_gate_type(fault_node);
+
+   for (i=0;i<fault_node->fin; i++)
+   {
+      NSTRUC *np;
+      np = fault_node->unodes[i];
+      
+      check_and_push_to_jfrontier(np);
+   }*/
    
-   struct stack *dalg_dfrontier = newStack(MAXLINE);
-   struct stack *dalg_jfrontier = newStack(MAXLINE);
+   // add nodes to d frontier or j frontier 
+   /*
+      if(input of gate == D/d' && output is unknown)
+         push(node) to dfrontier stack
+      if(output of gate == 0/1/D/d' && input is unknown)
+         push(node) to jfrontier stack
+   */
+   
+   //assign values to d nodes & calculate and assign u node value
+   // if we cant assign dnodes and u nodes anymore, pop from dfrontier, assign non controlling value to the other input of the gate
+   
+   // assign values to d nodes & calculate and assign u node value
+   // add nodes to d frontier or j frontier 
+   /*
+      if(input of gate == D/d' && output is unknown)
+         push(node) to dfrontier stack
+      if(output of gate == 0/1/D/d' && input is unknown)
+         push(node) to jfrontier stack
+   */
+
+   // follow this until we reach PI, error propagate to PO and jfrontier is empty
+}
+
+void check_gate_type(NSTRUC *fault_node){
 
 }
 
-int dalg_helper()
+void check_and_push_to_dfrontier(struct stack *dalg_dfrontier ,NSTRUC *np)
+{
+ int j,k;
+ // Loop through all down nodes for np
+   for (j=0; j<np->fout; j++){
+    //  Loop through all inputs of each dnode of np
+      for (k=0; k<np->dnodes[j]->fin; k++){
+         // if one of them has fault_node==-2 or -3 add it to d frontier
+         if (np->dnodes[j]->unodes[k]->node_fault==-2||np->dnodes[j]->unodes[k]->node_fault==-3){
+            push(dalg_dfrontier, *np->dnodes[j]);
+            break;
+         }
+      } 
+      }
+}
+
+void check_and_push_to_jfrontier(struct stack *dalg_jfrontier, NSTRUC *np)
+{ 
+   int j,k;
+
+   // Check output to see if it is present
+   if (np->logical_value != -1){
+      // Loop through all unodes nodes for np
+      for (j=0; j<np->fin; j++){
+         int flag;
+         flag = 1;
+         for (k=0; k<np->unodes[j]->fin; k++){
+            // Check unode values for input which should be -1
+            if(np->unodes[j]->unodes[k]->logical_value != -1)
+            {
+               flag = 0;
+            }
+         }
+         if (flag == 1) push(dalg_jfrontier, *np->dnodes[j]);
+      }
+   }
+}
+
+void dalg_helper()
 {
    printf("Entered DALG_helper\n");
    /* PART-1:
@@ -3886,7 +3975,7 @@ int dalg_helper()
             {
                unode[i]->logical_val= 1-c;//(Non-controlling value.)
             }
-            if(dalg_helper) return success;
+            if(dalg_result == 1) return success;
          }
          return failure;
       }
@@ -3909,7 +3998,7 @@ int dalg_helper()
       {
          select unode[i] that has np->logical_val==-1;
          unode[i]->logical_val = c;
-         if(dalg_helper) return 1(success);
+         if(dalg_result == 1) return 1(success);
          unode[i]->logical_val = 1-c(c');
       }
       return 0(Failure);
@@ -3924,20 +4013,22 @@ dalg(char *cp)
    printf("Entered DALG\n");
    int faulty_node;
    int fault;
-   int imply_and_check_result,dalg_result;
+   int imply_and_check_result, dalg_result;
    int c,j,k,i;
    NSTRUC *np,*temp;
    sscanf(cp, "%d %d", &faulty_node,&fault);
-   printf("DALG fault: %d s-a-%d\n",faulty_node,fault);
+   printf("DALG fault: %d s-a-%d\n", faulty_node, fault);
+   printf("before Entering for loop\n");
 
    //Set the output of all the gates to X(-1).
    for(i=0;i<Nnodes;i++){
+      //printf("Entering for loop\n");
       np=&Node[i];
-
+      np->visited=0;
       // Assign D/D' on faulty signal
       if(np->num==faulty_node)
-      {
-         temp=np;
+      { //printf("Entering if condition\n");
+        temp=np;
          if(fault==0)
          {
              np->logical_value=1;
@@ -3956,9 +4047,11 @@ dalg(char *cp)
    }
 
    // Do first imply_and_check()
+   printf("Entering imply_and_check()\n");
    imply_and_check(temp);
    dalg_helper();  
-
+printf("Finish dalg\n");
+exit(-1);
 }
 
 void Backtrace(){
