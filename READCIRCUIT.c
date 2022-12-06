@@ -3921,18 +3921,6 @@ int dalg_helper()
 
 dalg(char *cp)
 {
-   /*
-   LOGICAL VALUE	REPRESENTATION
-      0				LOGICAL 0
-      1				LOGICAL 1
-     -1					X
-     -2					D
-     -3					D'
-
-     NOTE: In the node struct we added a new value called node_fault which
-     stores the fault-type of the node.
-   */
-
    printf("Entered DALG\n");
    int faulty_node;
    int fault;
@@ -3987,17 +3975,28 @@ podem(char *cp)
      NOTE: In the node struct we added a new value called node_fault which
      stores the fault-type of the node.
    */
-
-   printf("Entered PODEM\n");
+   
 }
 
 atpg_det(char *cp)
 {
-   printf("Entered ATPG_DET\n");
-   //CALL READ() HERE!!!!! ITS NOT GUARANTEED THAT THE USER WILL CALL
-   // READ() BEFORE THIS FUNCTION.
 
-   //DON'T USE RANDOM PATTERNS HERE.
+   printf("Entered PODEM\n");
+   /*
+   while()
+   if (error at PO) then SUCCESS
+   if (test not possible) then return FAILURE
+   (k,vk) = Objective()
+   (j,vj) = Backtrace (k,vk) //j is a PI //
+   Imply (j,vj)
+   if PODEM() = SUCCESS then return 1(success)
+   //reverse decision //
+   Imply (j,vjbar)
+   if PODEM() = SUCCESS then return 1(success)
+   Imply (j,x) // Why not Imply_and_Check? //
+   return FAILURE
+   */
+   
 }
 /*-----------------------------------------------------------------------
 input: gate type
