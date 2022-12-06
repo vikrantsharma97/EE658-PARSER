@@ -3931,8 +3931,7 @@ dalg(char *cp)
    printf("DALG fault: %d s-a-%d\n",faulty_node,fault);
 
    //Set the output of all the gates to X(-1).
-   for(i=0;i<Nnodes;i++)
-   {
+   for(i=0;i<Nnodes;i++){
       np=&Node[i];
 
       // Assign D/D' on faulty signal
@@ -3962,24 +3961,64 @@ dalg(char *cp)
 
 }
 
-podem(char *cp)
-{
-   /*
-   LOGICAL VALUE	REPRESENTATION
-      0				LOGICAL 0
-      1				LOGICAL 1
-     -1					X
-     -2					D
-     -3					D'
+void Backtrace(){
+   printf("Entered Backtrace\n");
+   /* 
+   //map objective into PI assignment //
+   begin
+      v=vk
+      while k is a gate output
+      begin 
+            i= inversion of k
+         select an input (j) of k with value x
+         v=v⊕i
+         k=j
+      end
+      //k is PI //
+      return (k,v)
+   end
+   */
 
-     NOTE: In the node struct we added a new value called node_fault which
-     stores the fault-type of the node.
+}
+
+void Objective(NSTRUC *np){
+   printf("Entered Objective\n");
+   /* 
+   //the target fault is l s-a-v //
+   if (the value of l is x ) then return (l,vbar)
+   select a gate (G) from the D-frontier
+   select an input (j) of G with value x
+   c=controlling value of G
+   c = controlling_val(np);
+   return (j,cbar)
+   
+
+   int c;
+   
+   if (l == x){
+      l->logical_val = ~v;
+   }
+   else{
+
+      pop() Gate G from D-frontier.
+      j = null;
+      for (input in (Gate G's inputs)){
+         if (input = X){
+            j = input;
+            break;
+         }
+      }
+      c = controlling_val(np);
+      j->logical_val = ~c;
+
+   }
    */
    
 }
+  
 
-atpg_det(char *cp)
-{
+podem(char *cp)
+{  
 
    printf("Entered PODEM\n");
    /*
