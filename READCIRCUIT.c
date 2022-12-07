@@ -4046,6 +4046,21 @@ int get_gate_value(NSTRUC *np)
 
 }
 
+int check_inputs(NSTRUC *np, NSTRUC *current_node)
+{
+   int i, temp;
+   
+   if(np->type==2) //xor
+   {
+      temp=0;
+      for(i=0;i<np->fin;i++)
+      {
+         if(np->unodes[i]->logical_value==-1 && np->unodes[i]->num != current_node->num) 
+            temp=1;
+      }
+      return temp;
+   }
+}
 
 void imply_and_check(int *imply_stack,int *imply_top)
 {
@@ -4075,20 +4090,47 @@ void imply_and_check(int *imply_stack,int *imply_top)
       if(np->type == 0) //PI
       {
          //dnode can be a branch or gate output;
-         for(i=0;i<np->fout;i++)
+         if(np->dnodes[0]->type==1) //all dnodes are branches
          {
-            if(np->dnodes[i]->type == 1)//BRANCH
+            for(i=0;i<np->fout;i++)
             {
-
-            }
-
-            if()
-            {
-
+               if(np->dnodes[i]->logical_value==1 || np->dnodes[i]->logical_value==0)
+               {
+                  if(np->logical_value==-1)
+                  {
+                     np->temp_logical_value=np->dnodes[i]->logical_value;
+                  }
+                  else if(np->logical_value ^ np->dnodes[i]->logical_value)
+                     implied=0; //conflict detected
+               }
             }
          }
 
 
+<<<<<<< HEAD
+=======
+         else //dnode is a gate output
+         {
+           if(np->dnodes[0]->type==2) //xor
+           {
+            if(np->dnodes[0]->logical_value==-1)
+            {
+               
+            }
+
+            if(np->dnodes[0]->logical_value==0)
+            {
+               
+            }
+
+            if(np->dnodes[0]->logical_value==-1)
+            {
+               
+            }
+           }
+
+         } 
+>>>>>>> e8ba40fb732ba123df6e55814edf8f7d3d9de30b
          // JUST add dnodes[] to the stack:
          
       }
