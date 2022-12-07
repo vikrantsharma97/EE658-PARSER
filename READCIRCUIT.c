@@ -4087,6 +4087,8 @@ void imply_and_check(int *imply_stack,int *imply_top)
 
             }
          }
+
+
          // JUST add dnodes[] to the stack:
          
       }
