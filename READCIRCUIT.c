@@ -58,6 +58,7 @@ lev()
 #include <string.h>
 #include <limits.h>
 #include <math.h>
+#include <stdbool.h>
 #define MAXLINE 10000              /* Input buffer size */
 #define MAXNAME 5000               /* File name size */
 
@@ -107,7 +108,9 @@ typedef struct n_struc {
    struct n_struc **dnodes;   /* pointer to array of down nodes */
    int level;                 /* level of the gate output */
    int logical_value;         /* For storing the logical value of every node.*/
+   int temp_logical_value;
    int node_fault;
+   int temp_node_fault;
    int visited;
    int fault_list[(int)(CHAR_BIT * sizeof(void *))];
    //dfs
@@ -3855,13 +3858,11 @@ int controlling_val(int type)
    // enum e_gtype {IPT, BRCH, XOR, OR, NOR, NOT, NAND, AND};
    switch(type)
    {
-   case 2: return 1; //XOR: No controlling value so we can return anything.
    case 3: return 1;  //OR
    case 4: return 1;  //NOR
-   //case 5: return ;  //NOT
    case 6: return 0;  //NAND
    case 7: return 0;  //AND
-   default: return -1; // The code should not enter 
+   default: return -1; // The code should not enter here for these cases.
    }
 
 
@@ -3869,6 +3870,8 @@ int controlling_val(int type)
 
 
 
+/*
+BHAVANA'S LOGIC:
 void get_all_nodes(NSTRUC *node, struct stack *all_nodes){   
    printf("Entered get_all_nodes()\n");
    int i;
@@ -3944,10 +3947,12 @@ void imply_and_check(NSTRUC *fault_node)
          push(node) to dfrontier stack
       if(output of gate == 0/1/D/d' && input is unknown)
          push(node) to jfrontier stack
-   */
+   
 
    // follow this until we reach PI, error propagate to PO and jfrontier is empty
 }
+
+
 
 void check_gate_type(NSTRUC *fault_node){
 
@@ -3989,7 +3994,169 @@ void check_and_push_to_jfrontier(struct stack *dalg_jfrontier, NSTRUC *np)
          if (flag == 1) push(dalg_jfrontier, *np->dnodes[j]);
       }
    }
+}*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//**************************NEW LOGIC: VIKRANT************************************************
+void update_d_frontier(int *D_frontier)
+{
+   int i,j,has_error;
+   NSTRUC *np;
+   for(i=0;i<Nnodes;i++)
+   {
+      has_error=0;
+      np = &Node[i];
+      //for()
+
+   }
+
+
 }
+
+
+void update_j_frontier(int *J_frontier)
+{
+
+
+
+}
+
+int get_gate_value(NSTRUC *np)
+{
+   int i,undeclared_input=0;
+   for(i=0;i<np->fin;i++)
+   {
+
+   }
+
+
+}
+
+
+void imply_and_check(int *imply_stack,int *imply_top)
+{
+   //NOTE: Size of both the frontiers will always be Nnodes.
+   //NOTE: Update pointer like this: *imply_top+=1. 
+   //OTHERWISE THEY WON'T CHANGE GLOBALLY.
+   
+   int i,j,current_node_num,implied=1;
+   NSTRUC *np,*tmp;
+
+   while( (*imply_top != 0) && (implied == 1))
+   {
+      current_node_num = imply_stack[*imply_top];
+      *imply_top-=1; // Update top pointer.
+
+      for(i=0;i<Nnodes;i++)
+      {
+         tmp = &Node[i];
+         if(tmp->num == current_node_num) np = tmp;
+      }
+      //From here, np is the current node(top of stack).
+      
+      //Try to imply values from the current node.
+      //First we do backward implication(using unodes) and then we do
+      //forward implication(using dnodes) for every node.
+
+      if(np->type == 0) //PI
+      {
+         //dnode can be a branch or gate output;
+         for(i=0;i<np->fout;i++)
+         {
+            if(np->dnodes[i]->type == 1)//BRANCH
+            {
+
+            }
+
+            if()
+            {
+
+            }
+         }
+         // JUST add dnodes[] to the stack:
+         
+      }
+
+
+      if(np->type == 1) //BRANCH
+      {
+         np->temp_logical_value = np->unodes[0]->temp_logical_value;
+      }
+
+
+      //CURRENT NODE IS A GATE(GATE OUTPUT):
+      if(np->type == 2) //XOR
+      {
+
+      }
+
+
+      if(np->type == 3) //OR
+      {
+
+      }
+
+
+      if(np->type == 4) //NOR
+      {
+
+      }
+
+
+      if(np->type == 5) //NOT
+      {
+
+      }
+
+
+      if(np->type == 6) //NAND
+      {
+
+      }
+
+
+      if(np->type == 7) //AND
+      {
+
+      }
+
+
+      //Push the unodes and dnodes of the current node to the imply stack.
+
+   }
+
+   if(implied == 1)
+   {
+      //Copy the temp values to the actual values for every node;
+      for(i=0;i<Nnodes;i++)
+      {
+         np = &Node[i];
+         np->logical_value = np->temp_logical_value;
+         np->node_fault = np->temp_node_fault;
+      }
+   }
+
+   
+   
+   
+
+
+}
+
 
 void dalg_helper()
 {
@@ -4049,43 +4216,88 @@ dalg(char *cp)
    int fault;
    int imply_and_check_result, dalg_result;
    int c,j,k,i;
-   NSTRUC *np,*temp;
+
+   int D_frontier[Nnodes]; //At max the D_frontier can have Nnodes entries.
+   int d_top=0; // D_frontier stack pointer.
+
+   int J_frontier[Nnodes]; //At max the J_frontier can have Nnodes entries.
+   int j_top=0; // J_frontier stack pointer.
+
+   int imply_stack[Nnodes]; // For imply_and_check().
+   int imply_top=0;// imply stack pointer.
+
+   //NSTRUC visited[Nnodes];
+   //int v_top=0; // visited stack pointer.
+   
+   
+   NSTRUC *np,*fault_node;
    sscanf(cp, "%d %d", &faulty_node,&fault);
    printf("DALG fault: %d s-a-%d\n", faulty_node, fault);
    printf("before Entering for loop\n");
+   /*
+   LOGICAL VALUE	REPRESENTATION
+      0				LOGICAL 0
+      1				LOGICAL 1
+     -1					X
+     -2					D
+     -3					D'
+   */
 
    //Set the output of all the gates to X(-1).
    for(i=0;i<Nnodes;i++){
       //printf("Entering for loop\n");
       np=&Node[i];
       np->visited=0;
+
       // Assign D/D' on faulty signal
       if(np->num==faulty_node)
-      { //printf("Entering if condition\n");
-        temp=np;
-         if(fault==0)
+      { 
+         np->visited=1;
+         fault_node = np;
+         //Add faulty_node to imply stack:
+         imply_stack[imply_top] =np->num;
+         imply_top+=1;
+
+         if(fault==0) //s-a-0
          {
              np->logical_value=1;
              np->node_fault=-2; //D
          }
-         if(fault==1)
+         if(fault==1) //s-a-1
          {
              np->logical_value=0;
              np->node_fault=-3; //D'
          }
+ 
       }
          
       np->logical_value=-1; //X
+      np->temp_logical_value = -1;//X
+      np->temp_node_fault=-4;//Garbage
       np->node_fault=-4; //Garbage
       
    }
 
+   
+   /*Initialize the imply_stack() with the fins and fouts of the faulty node:
+   for(j=0;j<np->fin;j++)
+   {
+      imply_stack[imply_top] = fault_node->unodes[j]->num;
+      imply_top+=1;
+   }
+
+   for(j=0;j<np->fout;j++)
+   {
+      imply_stack[imply_top] = fault_node->dnodes[j]->num;
+      imply_top+=1;
+   }*/
+
    // Do first imply_and_check()
-   printf("Entering imply_and_check()\n");
-   imply_and_check(temp);
+   
+   imply_and_check(imply_stack,&imply_top);
    dalg_helper();  
-printf("Finish dalg\n");
-exit(-1);
+   printf("Finished dalg\n");
+   exit(-1);
 }
 
 void Backtrace(){
@@ -4164,6 +4376,12 @@ podem(char *cp)
    return FAILURE
    */
    
+}
+atpg_det(char *cp)
+{
+   printf("Entered atpg_det\n");
+
+
 }
 /*-----------------------------------------------------------------------
 input: gate type
